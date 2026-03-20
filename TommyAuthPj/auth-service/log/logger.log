@@ -1,0 +1,18 @@
+[GIN-debug] [WARNING] Creating an Engine instance with the Logger and Recovery middleware already attached.
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] GET    /health                   --> auth-service/router.SetupRouter.func1 (3 handlers)
+[GIN-debug] POST   /register                 --> auth-service/internal/handler.(*AuthHandler).Register-fm (3 handlers)
+[GIN-debug] POST   /login                    --> auth-service/internal/handler.(*AuthHandler).Login-fm (3 handlers)
+[GIN-debug] POST   /refresh_token            --> auth-service/internal/handler.(*AuthHandler).RefreshToken-fm (3 handlers)
+[GIN-debug] GET    /user                     --> auth-service/internal/handler.(*AuthHandler).GetUser-fm (4 handlers)
+[GIN-debug] POST   /sign_out                 --> auth-service/internal/handler.(*AuthHandler).SignOut-fm (4 handlers)
+[GIN-debug] [WARNING] You trusted all proxies, this is NOT safe. We recommend you to set a value.
+Please check https://github.com/gin-gonic/gin/blob/master/docs/doc.md#dont-trust-all-proxies for details.
+[GIN-debug] Listening and serving HTTP on :8080
+2026/03/19 14:06:04 auth_middleware.go:17: JWTAuthMiddleware: missing Authorization header
+2026/03/19 14:06:04 register_handler.go:84: GetUser: user not authenticated (missing user_id in context)
+[GIN] 2026/03/19 - 14:06:04 | 401 |  274.9µs |             ::1 | GET      "/user"
