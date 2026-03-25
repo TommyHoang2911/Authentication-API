@@ -8,6 +8,8 @@ type User struct {
 	ID                      int64      `json:"id"`
 	Email                   string     `json:"email"`
 	Password                string     `json:"-"`
+	OAuthProvider           *string    `json:"oauth_provider,omitempty"`
+	OAuthProviderID         *string    `json:"-"`
 	RefreshToken            string     `json:"-"`
 	RefreshTokenExpiry      time.Time  `json:"-"`
 	EmailConfirmed          bool       `json:"email_confirmed"`

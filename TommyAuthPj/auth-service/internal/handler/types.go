@@ -6,6 +6,8 @@ import "auth-service/internal/model"
 type AuthServiceInterface interface {
 	Register(email, password string) (*model.User, error)
 	Login(email, password string) (*model.User, string, string, error)
+	OAuthLoginURL(provider string, state string) (string, error)
+	OAuthCallback(provider, code string) (*model.User, string, string, error)
 	GetUserByID(id int64) (*model.User, error)
 	RefreshToken(refreshToken string) (string, error)
 	SignOut(refreshToken string) error
