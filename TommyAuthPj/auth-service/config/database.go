@@ -3,7 +3,6 @@ package config
 import (
 	"database/sql"
 	"fmt"
-	"os"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -14,19 +13,7 @@ import (
 // InitDB reads configuration from the environment and opens a connection
 // to the PostgreSQL database. It returns a *sql.DB that must be closed
 // by the caller when the application shuts down.
-func InitDB() (*sql.DB, error) {
-	dsn := os.Getenv("DATABASE_URL")
-
-	if dsn == "" {
-		host := os.Getenv("DB_HOST")
-		db_user := os.Getenv("DB_USER")
-		db_pass := os.Getenv("DB_PASSWORD")
-		port := os.Getenv("PORT")
-		// default placeholder pointing to a local database. Users should
-		// override this with a real connection string in production.
-		dsn = fmt.Sprintf("%s://%s:%s@localhost:%s/authdb?sslmode=disable", host, db_user, db_pass, port)
-	}
-
+func InitDB(dsn string) (*sql.DB, error) {
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("open postgres: %w", err)

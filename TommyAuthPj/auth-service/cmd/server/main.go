@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"auth-service/internal/handler"
 	"auth-service/internal/repository"
 	"auth-service/internal/service"
+	"auth-service/internal/service/websocket"
 	"auth-service/router"
 )
 
@@ -45,22 +47,42 @@ func main() {
 		gin.DefaultErrorWriter = io.MultiWriter(os.Stderr, f)
 	}
 
-	db, err := config.InitDB()
+	dbURL := os.Getenv("DATABASE_URL")
+
+	if dbURL == "" {
+		db_user := os.Getenv("DB_USER")
+		db_pass := os.Getenv("DB_PASSWORD")
+		port := os.Getenv("PORT")
+		dbURL = fmt.Sprintf("postgresql://%s:%s@localhost:%s/authdb?sslmode=disable", db_user, db_pass, port)
+	}
+
+	db, err := config.InitDB(dbURL)
 	if err != nil {
 		log.Fatalf("database initialization failed: %v", err)
 	}
 	// defer db.Close()
 
 	// Run migrations
-	dbURL := "postgres://tommyhoang:Aa@123456@localhost:5432/authdb?sslmode=disable"
 	if err := config.RunMigrations(dbURL); err != nil {
 		log.Fatalf("migration failed: %v", err)
 	}
 
 	userRepo := repository.NewUserRepository(db)
-	authService := service.NewAuthService(userRepo)
+	authCodeRepo := repository.NewAuthCodeRepository(db)
+	hub := websocket.NewHub()
+
+	smtpHost := os.Getenv("SMTP_HOST")
+	smtpPort := os.Getenv("SMTP_PORT")
+	smtpUser := os.Getenv("SMTP_USER")
+	smtpPass := os.Getenv("SMTP_PASS")
+	smtpFrom := os.Getenv("SMTP_FROM")
+	baseURL := os.Getenv("BASE_URL")
+
+	emailService := service.NewEmailService(smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom, baseURL)
+
+	authService := service.NewAuthService(userRepo, authCodeRepo, emailService, hub)
 	authHandler := handler.NewAuthHandler(authService)
 
-	r := router.SetupRouter(authHandler)
+	r := router.SetupRouter(authHandler, hub)
 	r.Run(":8080")
 }

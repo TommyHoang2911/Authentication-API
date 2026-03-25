@@ -21,19 +21,19 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 // auto-generated ID.
 func (r *UserRepository) Create(user *model.User) error {
 	query := `
-INSERT INTO users (email, password, refresh_token, refresh_token_expiry, created_at)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO users (email, password, refresh_token, refresh_token_expiry, email_confirmed, confirmation_token, confirmation_token_expiry, created_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING id
 `
 	user.CreatedAt = time.Now()
-	return r.db.QueryRow(query, user.Email, user.Password, user.RefreshToken, user.RefreshTokenExpiry, user.CreatedAt).Scan(&user.ID)
+	return r.db.QueryRow(query, user.Email, user.Password, user.RefreshToken, user.RefreshTokenExpiry, user.EmailConfirmed, user.ConfirmationToken, user.ConfirmationTokenExpiry, user.CreatedAt).Scan(&user.ID)
 }
 
 // FindByEmail retrieves a user by their email address.
 func (r *UserRepository) FindByEmail(email string) (*model.User, error) {
-	query := `SELECT id, email, password, refresh_token, refresh_token_expiry, created_at FROM users WHERE email = $1`
+	query := `SELECT id, email, password, refresh_token, refresh_token_expiry, email_confirmed, confirmation_token, confirmation_token_expiry, created_at FROM users WHERE email = $1`
 	user := &model.User{}
-	err := r.db.QueryRow(query, email).Scan(&user.ID, &user.Email, &user.Password, &user.RefreshToken, &user.RefreshTokenExpiry, &user.CreatedAt)
+	err := r.db.QueryRow(query, email).Scan(&user.ID, &user.Email, &user.Password, &user.RefreshToken, &user.RefreshTokenExpiry, &user.EmailConfirmed, &user.ConfirmationToken, &user.ConfirmationTokenExpiry, &user.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -50,9 +50,9 @@ func (r *UserRepository) EmailExists(email string) (bool, error) {
 
 // FindByID retrieves a user by their ID.
 func (r *UserRepository) FindByID(id int64) (*model.User, error) {
-	query := `SELECT id, email, password, refresh_token, refresh_token_expiry, created_at FROM users WHERE id = $1`
+	query := `SELECT id, email, password, refresh_token, refresh_token_expiry, email_confirmed, confirmation_token, confirmation_token_expiry, created_at FROM users WHERE id = $1`
 	user := &model.User{}
-	err := r.db.QueryRow(query, id).Scan(&user.ID, &user.Email, &user.Password, &user.RefreshToken, &user.RefreshTokenExpiry, &user.CreatedAt)
+	err := r.db.QueryRow(query, id).Scan(&user.ID, &user.Email, &user.Password, &user.RefreshToken, &user.RefreshTokenExpiry, &user.EmailConfirmed, &user.ConfirmationToken, &user.ConfirmationTokenExpiry, &user.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -118,4 +118,33 @@ LIMIT 1
 		return "", err
 	}
 	return token, nil
+}
+
+// FindByConfirmationToken retrieves a user by their confirmation token if it exists and is not expired.
+func (r *UserRepository) FindByConfirmationToken(token string) (*model.User, error) {
+	query := `
+SELECT id, email, password, refresh_token, refresh_token_expiry, email_confirmed, confirmation_token, confirmation_token_expiry, created_at 
+FROM users 
+WHERE confirmation_token = $1 AND confirmation_token_expiry > NOW()
+`
+	user := &model.User{}
+	err := r.db.QueryRow(query, token).Scan(&user.ID, &user.Email, &user.Password, &user.RefreshToken, &user.RefreshTokenExpiry, &user.EmailConfirmed, &user.ConfirmationToken, &user.ConfirmationTokenExpiry, &user.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
+// ConfirmEmail updates a user's email confirmation status and clears the confirmation token.
+func (r *UserRepository) ConfirmEmail(userID int64) error {
+	query := `UPDATE users SET email_confirmed = TRUE, confirmation_token = NULL, confirmation_token_expiry = NULL WHERE id = $1`
+	_, err := r.db.Exec(query, userID)
+	return err
+}
+
+// UpdateConfirmationToken updates a user's confirmation token and expiry.
+func (r *UserRepository) UpdateConfirmationToken(userID int64, token string, expiry time.Time) error {
+	query := `UPDATE users SET confirmation_token = $1, confirmation_token_expiry = $2 WHERE id = $3`
+	_, err := r.db.Exec(query, token, expiry, userID)
+	return err
 }
