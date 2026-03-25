@@ -1,0 +1,524 @@
+basePath: /
+definitions:
+  handler.ErrorResponse:
+    properties:
+      error:
+        example: invalid request
+        type: string
+    type: object
+  handler.ExchangeCodeRequest:
+    properties:
+      temp_code:
+        type: string
+    required:
+    - temp_code
+    type: object
+  handler.ExchangeCodeResponse:
+    properties:
+      message:
+        example: code exchanged successfully
+        type: string
+      session_token:
+        example: refresh-token
+        type: string
+      token:
+        example: jwt-token
+        type: string
+      user:
+        $ref: '#/definitions/model.User'
+    type: object
+  handler.GenerateQRRequest:
+    properties:
+      device_id:
+        type: string
+    required:
+    - device_id
+    type: object
+  handler.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  handler.LoginResponse:
+    properties:
+      message:
+        example: login successful
+        type: string
+      refresh_token:
+        example: refresh-token
+        type: string
+      token:
+        example: jwt-token
+        type: string
+      user:
+        $ref: '#/definitions/model.User'
+    type: object
+  handler.MessageResponse:
+    properties:
+      message:
+        example: operation completed successfully
+        type: string
+    type: object
+  handler.OAuthLoginResponse:
+    properties:
+      message:
+        example: oauth login successful
+        type: string
+      refresh_token:
+        example: refresh-token
+        type: string
+      token:
+        example: jwt-token
+        type: string
+      user:
+        $ref: '#/definitions/model.User'
+    type: object
+  handler.QRCodeResponse:
+    properties:
+      code:
+        example: generated-qr-code
+        type: string
+    type: object
+  handler.RefreshTokenRequest:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
+  handler.RegisterRequest:
+    properties:
+      email:
+        type: string
+      password:
+        minLength: 8
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  handler.RegisterResponse:
+    properties:
+      message:
+        example: user registered successfully
+        type: string
+      user:
+        $ref: '#/definitions/model.User'
+    type: object
+  handler.ResendConfirmationRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
+  handler.SignOutRequest:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
+  handler.TokenResponse:
+    properties:
+      token:
+        example: jwt-token
+        type: string
+    type: object
+  handler.UserEnvelope:
+    properties:
+      user:
+        $ref: '#/definitions/model.User'
+    type: object
+  handler.VerifyQRRequest:
+    properties:
+      code:
+        type: string
+    required:
+    - code
+    type: object
+  model.User:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      email_confirmed:
+        type: boolean
+      id:
+        type: integer
+      oauth_provider:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: Authentication, OAuth, and QR login API for the auth service.
+  title: Auth Service API
+  version: "1.0"
+paths:
+  /auth/{provider}/callback:
+    get:
+      description: Exchange provider code for application tokens.
+      parameters:
+      - description: OAuth provider
+        enum:
+        - google
+        - facebook
+        in: path
+        name: provider
+        required: true
+        type: string
+      - description: Authorization code
+        in: query
+        name: code
+        required: true
+        type: string
+      - description: OAuth state
+        in: query
+        name: state
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.OAuthLoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Complete OAuth login
+      tags:
+      - OAuth
+  /auth/{provider}/login:
+    get:
+      description: Redirect the user to the selected OAuth provider login page.
+      parameters:
+      - description: OAuth provider
+        enum:
+        - google
+        - facebook
+        in: path
+        name: provider
+        required: true
+        type: string
+      responses:
+        "307":
+          description: Temporary Redirect
+          headers:
+            Location:
+              description: Redirect URL to the OAuth provider's login page
+              type: string
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Start OAuth login
+      tags:
+      - OAuth
+  /confirm_email:
+    get:
+      description: Confirm a user account using the email confirmation token.
+      parameters:
+      - description: Confirmation token
+        in: query
+        name: token
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Confirm user email
+      tags:
+      - Auth
+  /exchange_code:
+    post:
+      consumes:
+      - application/json
+      description: Exchange a temporary QR authentication code for access tokens.
+      parameters:
+      - description: Exchange payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.ExchangeCodeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.ExchangeCodeResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Exchange temporary code
+      tags:
+      - QR
+  /generate_qr:
+    post:
+      consumes:
+      - application/json
+      description: Generate a QR-based authentication code for a device.
+      parameters:
+      - description: Device payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.GenerateQRRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.QRCodeResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Generate QR auth code
+      tags:
+      - QR
+  /login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate a confirmed user and return access and refresh tokens.
+      parameters:
+      - description: Login payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.LoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Login with email and password
+      tags:
+      - Auth
+  /refresh_token:
+    post:
+      consumes:
+      - application/json
+      description: Validate a refresh token and return a new access token.
+      parameters:
+      - description: Refresh token payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.RefreshTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.TokenResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Refresh access token
+      tags:
+      - Auth
+  /register:
+    post:
+      consumes:
+      - application/json
+      description: Create a new user account with email and password.
+      parameters:
+      - description: Registration payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handler.RegisterResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Register a new user
+      tags:
+      - Auth
+  /resend_confirmation:
+    post:
+      consumes:
+      - application/json
+      description: Resend the email confirmation message to a registered user.
+      parameters:
+      - description: Resend confirmation payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.ResendConfirmationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      summary: Resend confirmation email
+      tags:
+      - Auth
+  /sign_out:
+    post:
+      consumes:
+      - application/json
+      description: Invalidate a user's refresh token.
+      parameters:
+      - description: Sign out payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.SignOutRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Sign out user
+      tags:
+      - Auth
+  /user:
+    get:
+      description: Retrieve the authenticated user profile.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.UserEnvelope'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get current user
+      tags:
+      - Auth
+  /verify_qr:
+    post:
+      consumes:
+      - application/json
+      description: Verify a scanned QR code for the authenticated user.
+      parameters:
+      - description: Verification payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.VerifyQRRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Verify QR auth code
+      tags:
+      - QR
+schemes:
+- http
+- https
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

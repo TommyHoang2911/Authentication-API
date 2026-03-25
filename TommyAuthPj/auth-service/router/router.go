@@ -6,9 +6,15 @@ import (
 	"auth-service/internal/service/websocket"
 
 	"github.com/gin-gonic/gin"
+	swaggerfiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
-func SetupRouter(authHandler *handler.AuthHandler, hub *websocket.Hub) *gin.Engine {
+// SetupRouter configures and returns the Gin router with all routes.
+// enableSwagger controls whether the /swagger/*any endpoint is exposed.
+// Typically enableSwagger should be true only in development environments
+// to avoid exposing API documentation in production.
+func SetupRouter(authHandler *handler.AuthHandler, hub *websocket.Hub, enableSwagger bool) *gin.Engine {
 	r := gin.Default()
 
 	// health check
@@ -17,6 +23,11 @@ func SetupRouter(authHandler *handler.AuthHandler, hub *websocket.Hub) *gin.Engi
 			"status": "ok",
 		})
 	})
+
+	// Swagger documentation (only in development/non-production)
+	if enableSwagger {
+		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
+	}
 
 	// Public routes
 	r.POST("/register", authHandler.Register)

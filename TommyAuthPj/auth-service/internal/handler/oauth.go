@@ -9,6 +9,15 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// OAuthLogin godoc
+// @Summary Start OAuth login
+// @Description Redirect the user to the selected OAuth provider login page.
+// @Tags OAuth
+// @Param provider path string true "OAuth provider" Enums(google,facebook)
+// @Success 307 {string} string "Temporary Redirect"
+// @Header 307 {string} Location "Redirect URL to the OAuth provider's login page"
+// @Failure 400 {object} ErrorResponse
+// @Router /auth/{provider}/login [get]
 // OAuthLogin redirects user to provider consent page.
 func (h *AuthHandler) OAuthLogin(c *gin.Context) {
 	provider := c.Param("provider")
@@ -20,7 +29,7 @@ func (h *AuthHandler) OAuthLogin(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	// c.SetCookie("oauth_state", state, 600, "/", "", false, true)
+	c.SetCookie("oauth_state", state, 600, "/", "", false, true)
 	secure := c.Request.TLS != nil
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     "oauth_state",
@@ -35,6 +44,18 @@ func (h *AuthHandler) OAuthLogin(c *gin.Context) {
 	c.Redirect(http.StatusTemporaryRedirect, url)
 }
 
+// OAuthCallback godoc
+// @Summary Complete OAuth login
+// @Description Exchange provider code for application tokens.
+// @Tags OAuth
+// @Produce json
+// @Param provider path string true "OAuth provider" Enums(google,facebook)
+// @Param code query string true "Authorization code"
+// @Param state query string true "OAuth state"
+// @Success 200 {object} OAuthLoginResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Router /auth/{provider}/callback [get]
 // OAuthCallback handles provider callback, exchanges code, and returns tokens.
 func (h *AuthHandler) OAuthCallback(c *gin.Context) {
 	provider := c.Param("provider")
