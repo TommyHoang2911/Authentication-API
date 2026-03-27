@@ -21,6 +21,8 @@ func SetupRouter(authHandler *handler.AuthHandler, hub *websocket.Hub) *gin.Engi
 	// Public routes
 	r.POST("/register", authHandler.Register)
 	r.POST("/login", authHandler.Login)
+	r.GET("/auth/:provider/login", authHandler.OAuthLogin)
+	r.GET("/auth/:provider/callback", authHandler.OAuthCallback)
 	r.POST("/generate_qr", authHandler.GenerateQR)
 	r.POST("/exchange_code", authHandler.ExchangeCode)
 	r.GET("/confirm_email", authHandler.ConfirmEmail)

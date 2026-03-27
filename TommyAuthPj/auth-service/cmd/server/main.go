@@ -79,8 +79,16 @@ func main() {
 	baseURL := os.Getenv("BASE_URL")
 
 	emailService := service.NewEmailService(smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom, baseURL)
+	oauthService := service.NewOAuthService(
+		os.Getenv("GOOGLE_OAUTH_CLIENT_ID"),
+		os.Getenv("GOOGLE_OAUTH_CLIENT_SECRET"),
+		os.Getenv("GOOGLE_OAUTH_REDIRECT_URL"),
+		os.Getenv("FACEBOOK_OAUTH_CLIENT_ID"),
+		os.Getenv("FACEBOOK_OAUTH_CLIENT_SECRET"),
+		os.Getenv("FACEBOOK_OAUTH_REDIRECT_URL"),
+	)
 
-	authService := service.NewAuthService(userRepo, authCodeRepo, emailService, hub)
+	authService := service.NewAuthService(userRepo, authCodeRepo, emailService, oauthService, hub)
 	authHandler := handler.NewAuthHandler(authService)
 
 	r := router.SetupRouter(authHandler, hub)

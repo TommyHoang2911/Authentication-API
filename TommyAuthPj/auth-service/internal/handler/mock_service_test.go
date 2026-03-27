@@ -21,6 +21,16 @@ func (m *MockAuthService) Login(email, password string) (*model.User, string, st
 	return args.Get(0).(*model.User), args.String(1), args.String(2), args.Error(3)
 }
 
+func (m *MockAuthService) OAuthLoginURL(provider string, state string) (string, error) {
+	args := m.Called(provider, state)
+	return args.String(0), args.Error(1)
+}
+
+func (m *MockAuthService) OAuthCallback(provider, code string) (*model.User, string, string, error) {
+	args := m.Called(provider, code)
+	return args.Get(0).(*model.User), args.String(1), args.String(2), args.Error(3)
+}
+
 func (m *MockAuthService) GetUserByID(id int64) (*model.User, error) {
 	args := m.Called(id)
 	return args.Get(0).(*model.User), args.Error(1)

@@ -10,9 +10,11 @@ require (
 	github.com/lib/pq v1.11.2
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/crypto v0.48.0
+	golang.org/x/oauth2 v0.30.0
 )
 
 require (
+	cloud.google.com/go/compute/metadata v0.8.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect

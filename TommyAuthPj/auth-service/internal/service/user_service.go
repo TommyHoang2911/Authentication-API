@@ -4,6 +4,7 @@ import (
 	"auth-service/internal/model"
 	"auth-service/internal/repository"
 	"crypto/rand"
+	"database/sql"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -89,6 +90,70 @@ func (s *UserService) Login(email string, password string) (*model.User, error) 
 	}
 
 	return user, nil
+}
+
+// GetOrCreateOAuthUser resolves an OAuth identity to a local user account.
+func (s *UserService) GetOrCreateOAuthUser(email, provider, providerID string) (*model.User, error) {
+	user, err := s.repo.FindByOAuth(provider, providerID)
+	if err == nil {
+		return user, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+
+	// Link to existing account by email when possible.
+	if email != "" {
+		existing, emailErr := s.repo.FindByEmail(email)
+		if emailErr == nil {
+			if existing.OAuthProvider != nil && existing.OAuthProviderID != nil {
+				if *existing.OAuthProvider != provider || *existing.OAuthProviderID != providerID {
+					return nil, errors.New("email already linked to another OAuth account")
+				}
+				return existing, nil
+			}
+
+			if err := s.repo.LinkOAuthProvider(existing.ID, provider, providerID); err != nil {
+				return nil, err
+			}
+			linked, err := s.repo.FindByID(existing.ID)
+			if err != nil {
+				return nil, err
+			}
+			return linked, nil
+		}
+		if !errors.Is(emailErr, sql.ErrNoRows) {
+			return nil, emailErr
+		}
+	}
+
+	placeholderPassword := generateConfirmationToken()
+	hashed, err := bcrypt.GenerateFromPassword([]byte(placeholderPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, err
+	}
+
+	providerCopy := provider
+	providerIDCopy := providerID
+
+	newUser := &model.User{
+		Email:                   email,
+		Password:                string(hashed),
+		OAuthProvider:           &providerCopy,
+		OAuthProviderID:         &providerIDCopy,
+		RefreshToken:            "",
+		RefreshTokenExpiry:      time.Time{},
+		EmailConfirmed:          true,
+		ConfirmationToken:       nil,
+		ConfirmationTokenExpiry: nil,
+		CreatedAt:               time.Now(),
+	}
+
+	if err := s.repo.Create(newUser); err != nil {
+		return nil, err
+	}
+
+	return newUser, nil
 }
 
 // GetUserByID retrieves a user by ID, omitting sensitive fields.

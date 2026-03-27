@@ -21,19 +21,19 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 // auto-generated ID.
 func (r *UserRepository) Create(user *model.User) error {
 	query := `
-INSERT INTO users (email, password, refresh_token, refresh_token_expiry, email_confirmed, confirmation_token, confirmation_token_expiry, created_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO users (email, password, oauth_provider, oauth_provider_id, refresh_token, refresh_token_expiry, email_confirmed, confirmation_token, confirmation_token_expiry, created_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING id
 `
 	user.CreatedAt = time.Now()
-	return r.db.QueryRow(query, user.Email, user.Password, user.RefreshToken, user.RefreshTokenExpiry, user.EmailConfirmed, user.ConfirmationToken, user.ConfirmationTokenExpiry, user.CreatedAt).Scan(&user.ID)
+	return r.db.QueryRow(query, user.Email, user.Password, user.OAuthProvider, user.OAuthProviderID, user.RefreshToken, user.RefreshTokenExpiry, user.EmailConfirmed, user.ConfirmationToken, user.ConfirmationTokenExpiry, user.CreatedAt).Scan(&user.ID)
 }
 
 // FindByEmail retrieves a user by their email address.
 func (r *UserRepository) FindByEmail(email string) (*model.User, error) {
-	query := `SELECT id, email, password, refresh_token, refresh_token_expiry, email_confirmed, confirmation_token, confirmation_token_expiry, created_at FROM users WHERE email = $1`
+	query := `SELECT id, email, password, oauth_provider, oauth_provider_id, refresh_token, refresh_token_expiry, email_confirmed, confirmation_token, confirmation_token_expiry, created_at FROM users WHERE email = $1`
 	user := &model.User{}
-	err := r.db.QueryRow(query, email).Scan(&user.ID, &user.Email, &user.Password, &user.RefreshToken, &user.RefreshTokenExpiry, &user.EmailConfirmed, &user.ConfirmationToken, &user.ConfirmationTokenExpiry, &user.CreatedAt)
+	err := r.db.QueryRow(query, email).Scan(&user.ID, &user.Email, &user.Password, &user.OAuthProvider, &user.OAuthProviderID, &user.RefreshToken, &user.RefreshTokenExpiry, &user.EmailConfirmed, &user.ConfirmationToken, &user.ConfirmationTokenExpiry, &user.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -50,13 +50,35 @@ func (r *UserRepository) EmailExists(email string) (bool, error) {
 
 // FindByID retrieves a user by their ID.
 func (r *UserRepository) FindByID(id int64) (*model.User, error) {
-	query := `SELECT id, email, password, refresh_token, refresh_token_expiry, email_confirmed, confirmation_token, confirmation_token_expiry, created_at FROM users WHERE id = $1`
+	query := `SELECT id, email, password, oauth_provider, oauth_provider_id, refresh_token, refresh_token_expiry, email_confirmed, confirmation_token, confirmation_token_expiry, created_at FROM users WHERE id = $1`
 	user := &model.User{}
-	err := r.db.QueryRow(query, id).Scan(&user.ID, &user.Email, &user.Password, &user.RefreshToken, &user.RefreshTokenExpiry, &user.EmailConfirmed, &user.ConfirmationToken, &user.ConfirmationTokenExpiry, &user.CreatedAt)
+	err := r.db.QueryRow(query, id).Scan(&user.ID, &user.Email, &user.Password, &user.OAuthProvider, &user.OAuthProviderID, &user.RefreshToken, &user.RefreshTokenExpiry, &user.EmailConfirmed, &user.ConfirmationToken, &user.ConfirmationTokenExpiry, &user.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
 	return user, nil
+}
+
+// FindByOAuth retrieves a user by OAuth provider and provider user ID.
+func (r *UserRepository) FindByOAuth(provider, providerID string) (*model.User, error) {
+	query := `
+SELECT id, email, password, oauth_provider, oauth_provider_id, refresh_token, refresh_token_expiry, email_confirmed, confirmation_token, confirmation_token_expiry, created_at
+FROM users
+WHERE oauth_provider = $1 AND oauth_provider_id = $2
+`
+	user := &model.User{}
+	err := r.db.QueryRow(query, provider, providerID).Scan(&user.ID, &user.Email, &user.Password, &user.OAuthProvider, &user.OAuthProviderID, &user.RefreshToken, &user.RefreshTokenExpiry, &user.EmailConfirmed, &user.ConfirmationToken, &user.ConfirmationTokenExpiry, &user.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
+// LinkOAuthProvider links an existing local user account to an OAuth provider identity.
+func (r *UserRepository) LinkOAuthProvider(userID int64, provider, providerID string) error {
+	query := `UPDATE users SET oauth_provider = $1, oauth_provider_id = $2 WHERE id = $3`
+	_, err := r.db.Exec(query, provider, providerID, userID)
+	return err
 }
 
 // UpdateRefreshToken updates the refresh token and expiry for a user.
@@ -123,12 +145,12 @@ LIMIT 1
 // FindByConfirmationToken retrieves a user by their confirmation token if it exists and is not expired.
 func (r *UserRepository) FindByConfirmationToken(token string) (*model.User, error) {
 	query := `
-SELECT id, email, password, refresh_token, refresh_token_expiry, email_confirmed, confirmation_token, confirmation_token_expiry, created_at 
+SELECT id, email, password, oauth_provider, oauth_provider_id, refresh_token, refresh_token_expiry, email_confirmed, confirmation_token, confirmation_token_expiry, created_at
 FROM users 
 WHERE confirmation_token = $1 AND confirmation_token_expiry > NOW()
 `
 	user := &model.User{}
-	err := r.db.QueryRow(query, token).Scan(&user.ID, &user.Email, &user.Password, &user.RefreshToken, &user.RefreshTokenExpiry, &user.EmailConfirmed, &user.ConfirmationToken, &user.ConfirmationTokenExpiry, &user.CreatedAt)
+	err := r.db.QueryRow(query, token).Scan(&user.ID, &user.Email, &user.Password, &user.OAuthProvider, &user.OAuthProviderID, &user.RefreshToken, &user.RefreshTokenExpiry, &user.EmailConfirmed, &user.ConfirmationToken, &user.ConfirmationTokenExpiry, &user.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
