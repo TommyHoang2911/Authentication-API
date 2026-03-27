@@ -59,7 +59,7 @@ func (h *AuthHandler) OAuthCallback(c *gin.Context) {
 	user, token, refreshToken, err := h.authService.OAuthCallback(provider, code)
 	if err != nil {
 		log.Printf("OAuthCallback: authentication failed: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 

@@ -129,7 +129,7 @@ func TestAuthHandler_OAuthCallback(t *testing.T) {
 				Value: "state123",
 			},
 			setupMock: func(m *MockAuthService) {
-				m.On("OAuthCallback", "facebook", "test-code").Return(&model.User{}, "", "", errors.New("oauth authentication failed"))
+				m.On("OAuthCallback", "facebook", "test-code").Return((*model.User)(nil), "", "", errors.New("oauth authentication failed"))
 			},
 			expectedStatus: http.StatusUnauthorized,
 		},
