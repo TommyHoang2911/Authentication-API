@@ -37,21 +37,39 @@ Implement OAuth authentication, API documentation, comprehensive testing, struct
 6. Update main.go to use new structure and dependency injection
 7. Move JWT logic to pkg/jwt/manager.go with interface
 
-### Phase 5: Docker Containerization
+### Phase 5: Move email sending flow to queue-based processing
+1. Move email sending flow to queue-based processing (async worker + retry strategy)
+
+### Phase 6: Reliability & Error Standardization
+1. Read through the project and standardize all error responses to:{"err_code": "CategoryCode_ResponseCode", "err_message": "Error message"}
+2. Apply CategoryCode using this specification:
+
+| Category Code | Category Name | Description |
+|---|---|---|
+| API | API Errors | Errors related to HTTP requests (validation, auth, etc.) |
+| USC | User Service | Errors specific to user profile, login, registration, etc. |
+| DLV | Delivery/Validation | Errors in delivery services or logistics validation, etc. |
+| GRPC | gRPC Communication | Errors related to gRPC service-to-service communication |
+| DB | Database | Database read/write, connection, or schema validation errors |
+| INT | Integration | External API failures, payment gateway, or 3rd-party service issues |
+| SYS | System | Unexpected exceptions, resource limits, or timeouts |
+| SOCK | WebSocket | Errors in WebSocket flows |
+
+### Phase 7: Docker Containerization
 1. Create Dockerfile with multi-stage build
 2. Create docker-compose.yml with postgres and auth-service services
 3. Add .env.docker with container-specific environment variables
 4. Update config to support DATABASE_URL for container networking
 5. Test docker-compose up and verify service runs in containers
 
-### Phase 6: Environment Configurations
+### Phase 8: Environment Configurations
 1. Enhance config loading for APP_ENV (development, production, testing)
 2. Create separate .env files: .env.development, .env.production, .env.testing
 3. Add test database configuration for unit tests
 4. Implement environment-specific logging and error handling
 5. Add config validation and defaults
 
-### Phase 7: Deployment
+### Phase 9: Deployment
 1. Set up CI/CD pipeline (GitHub Actions) for automated testing and building
 2. Create deployment manifests for chosen platform (e.g., Kubernetes, Docker Compose for cloud)
 3. Configure production environment variables and secrets management
@@ -62,6 +80,9 @@ Implement OAuth authentication, API documentation, comprehensive testing, struct
 - internal/service/oauth_service.go — New OAuth service
 - internal/handler/oauth.go — New OAuth handlers
 - internal/handler/auth.go — Add Swagger annotations
+- internal/service/email_service.go — Move email send to queue producer
+- internal/service/queue/ — Queue producer/consumer for email jobs
+- internal/handler/types.go — Standardized error response model ("err_code": "...", "err_message": "...")
 - docs/ — Generated Swagger docs
 - internal/service/*_test.go — New service tests
 - internal/repository/*_test.go — New repository tests
@@ -76,10 +97,12 @@ Implement OAuth authentication, API documentation, comprehensive testing, struct
 1. OAuth: Test login flows with Facebook/Google accounts, verify user creation/linking
 2. API Docs: Access Swagger UI, verify all endpoints documented with try-it-out functionality
 3. Tests: Run go test -cover, achieve >70% coverage, all tests pass
-4. Refactoring: Build and run service, verify no functionality broken
-5. Docker: docker-compose up succeeds, service accessible at localhost:8080
-6. Environments: Switch APP_ENV, verify different configs loaded
-7. Deployment: Deploy to staging, verify service runs in production-like environment
+4. Error Format: Verify all API errors follow {"err_code": "...", "err_message": "..."} and valid CategoryCode_ResponseCode
+5. Email Queue: Verify email jobs are enqueued and processed asynchronously with retry handling
+6. Refactoring: Build and run service, verify no functionality broken
+7. Docker: docker-compose up succeeds, service accessible at localhost:8080
+8. Environments: Switch APP_ENV, verify different configs loaded
+9. Deployment: Deploy to staging, verify service runs in production-like environment
 
 **Decisions**
 - OAuth providers: Facebook and Google using goth library for unified interface
