@@ -61,3 +61,49 @@ type ConfirmEmailRequest struct {
 type ResendConfirmationRequest struct {
 	Email string `json:"email" binding:"required,email"`
 }
+
+type ErrorResponse struct {
+	Error string `json:"error" example:"invalid request"`
+}
+
+type MessageResponse struct {
+	Message string `json:"message" example:"operation completed successfully"`
+}
+
+type TokenResponse struct {
+	Token string `json:"token" example:"jwt-token"`
+}
+
+type QRCodeResponse struct {
+	Code string `json:"code" example:"generated-qr-code"`
+}
+
+type UserEnvelope struct {
+	User *model.User `json:"user"`
+}
+
+type RegisterResponse struct {
+	Message string      `json:"message" example:"user registered successfully"`
+	User    *model.User `json:"user"`
+}
+
+type LoginResponse struct {
+	Message      string      `json:"message" example:"login successful"`
+	User         *model.User `json:"user"`
+	Token        string      `json:"token" example:"jwt-token"`
+	RefreshToken string      `json:"refresh_token" example:"refresh-token"`
+}
+
+type OAuthLoginResponse struct {
+	Message      string      `json:"message" example:"oauth login successful"`
+	User         *model.User `json:"user"`
+	Token        string      `json:"token" example:"jwt-token"`
+	RefreshToken string      `json:"refresh_token" example:"refresh-token"`
+}
+
+type ExchangeCodeResponse struct {
+	Message      string      `json:"message" example:"code exchanged successfully"`
+	User         *model.User `json:"user"`
+	Token        string      `json:"token" example:"jwt-token"`
+	SessionToken string      `json:"session_token" example:"refresh-token"`
+}

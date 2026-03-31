@@ -5,17 +5,28 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 
 	"auth-service/config"
+	"auth-service/docs"
 	"auth-service/internal/handler"
 	"auth-service/internal/repository"
 	"auth-service/internal/service"
 	"auth-service/internal/service/websocket"
 	"auth-service/router"
 )
+
+// @title Auth Service API
+// @version 1.0
+// @description Authentication, OAuth, and QR login API for the auth service.
+// @BasePath /
+// @schemes http https
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
 
 func main() {
 	err := godotenv.Load()
@@ -91,6 +102,16 @@ func main() {
 	authService := service.NewAuthService(userRepo, authCodeRepo, emailService, oauthService, hub)
 	authHandler := handler.NewAuthHandler(authService)
 
-	r := router.SetupRouter(authHandler, hub)
+	// Enable Swagger documentation only in non-production environments
+	enableSwagger := appEnv != "production"
+	swaggerHostEnvKey := "SWAGGER_HOST_" + strings.ToUpper(appEnv)
+	swaggerHost := os.Getenv(swaggerHostEnvKey)
+	if enableSwagger {
+		if strings.TrimSpace(swaggerHost) == "" {
+			log.Fatalf("swagger is enabled but %s is not set or is empty", swaggerHostEnvKey)
+		}
+		docs.SwaggerInfo.Host = swaggerHost
+	}
+	r := router.SetupRouter(authHandler, hub, enableSwagger)
 	r.Run(":8080")
 }
