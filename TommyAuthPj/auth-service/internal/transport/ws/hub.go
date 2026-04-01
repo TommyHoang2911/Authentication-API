@@ -1,4 +1,4 @@
-package websocket
+package ws
 
 import (
 	"log"
@@ -11,31 +11,26 @@ import (
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
-		return true // Allow connections from any origin
+		return true
 	},
 }
 
-// Hub manages WebSocket connections
+// Hub manages WebSocket connections.
 type Hub struct {
-	connections map[string]*websocket.Conn // code -> connection
+	connections map[string]*websocket.Conn
 	mu          sync.RWMutex
 }
 
-// NewHub creates a new hub
 func NewHub() *Hub {
-	return &Hub{
-		connections: make(map[string]*websocket.Conn),
-	}
+	return &Hub{connections: make(map[string]*websocket.Conn)}
 }
 
-// RegisterConnection registers a WebSocket connection for a code
 func (h *Hub) RegisterConnection(code string, conn *websocket.Conn) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.connections[code] = conn
 }
 
-// UnregisterConnection removes a connection
 func (h *Hub) UnregisterConnection(code string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -45,7 +40,6 @@ func (h *Hub) UnregisterConnection(code string) {
 	}
 }
 
-// SendMessage sends a message to the connection associated with the code
 func (h *Hub) SendMessage(code string, message map[string]interface{}) {
 	h.mu.RLock()
 	conn, exists := h.connections[code]
@@ -62,7 +56,6 @@ func (h *Hub) SendMessage(code string, message map[string]interface{}) {
 	}
 }
 
-// HandleWebSocket handles WebSocket connections
 func (h *Hub) HandleWebSocket(c *gin.Context) {
 	code := c.Query("code")
 	if code == "" {
@@ -78,7 +71,6 @@ func (h *Hub) HandleWebSocket(c *gin.Context) {
 
 	h.RegisterConnection(code, conn)
 
-	// Keep the connection alive
 	for {
 		_, _, err := conn.ReadMessage()
 		if err != nil {

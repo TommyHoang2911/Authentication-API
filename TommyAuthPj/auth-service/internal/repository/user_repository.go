@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"time"
 
-	"auth-service/internal/model"
+	"auth-service/internal/domain"
 )
 
 // UserRepository performs CRUD operations on the users table.
@@ -19,7 +19,7 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 
 // Create inserts a new user record and updates the user object with its
 // auto-generated ID.
-func (r *UserRepository) Create(user *model.User) error {
+func (r *UserRepository) Create(user *domain.User) error {
 	query := `
 INSERT INTO users (email, password, oauth_provider, oauth_provider_id, refresh_token, refresh_token_expiry, email_confirmed, confirmation_token, confirmation_token_expiry, created_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
@@ -30,9 +30,9 @@ RETURNING id
 }
 
 // FindByEmail retrieves a user by their email address.
-func (r *UserRepository) FindByEmail(email string) (*model.User, error) {
+func (r *UserRepository) FindByEmail(email string) (*domain.User, error) {
 	query := `SELECT id, email, password, oauth_provider, oauth_provider_id, refresh_token, refresh_token_expiry, email_confirmed, confirmation_token, confirmation_token_expiry, created_at FROM users WHERE email = $1`
-	user := &model.User{}
+	user := &domain.User{}
 	err := r.db.QueryRow(query, email).Scan(&user.ID, &user.Email, &user.Password, &user.OAuthProvider, &user.OAuthProviderID, &user.RefreshToken, &user.RefreshTokenExpiry, &user.EmailConfirmed, &user.ConfirmationToken, &user.ConfirmationTokenExpiry, &user.CreatedAt)
 	if err != nil {
 		return nil, err
@@ -49,9 +49,9 @@ func (r *UserRepository) EmailExists(email string) (bool, error) {
 }
 
 // FindByID retrieves a user by their ID.
-func (r *UserRepository) FindByID(id int64) (*model.User, error) {
+func (r *UserRepository) FindByID(id int64) (*domain.User, error) {
 	query := `SELECT id, email, password, oauth_provider, oauth_provider_id, refresh_token, refresh_token_expiry, email_confirmed, confirmation_token, confirmation_token_expiry, created_at FROM users WHERE id = $1`
-	user := &model.User{}
+	user := &domain.User{}
 	err := r.db.QueryRow(query, id).Scan(&user.ID, &user.Email, &user.Password, &user.OAuthProvider, &user.OAuthProviderID, &user.RefreshToken, &user.RefreshTokenExpiry, &user.EmailConfirmed, &user.ConfirmationToken, &user.ConfirmationTokenExpiry, &user.CreatedAt)
 	if err != nil {
 		return nil, err
@@ -60,13 +60,13 @@ func (r *UserRepository) FindByID(id int64) (*model.User, error) {
 }
 
 // FindByOAuth retrieves a user by OAuth provider and provider user ID.
-func (r *UserRepository) FindByOAuth(provider, providerID string) (*model.User, error) {
+func (r *UserRepository) FindByOAuth(provider, providerID string) (*domain.User, error) {
 	query := `
 SELECT id, email, password, oauth_provider, oauth_provider_id, refresh_token, refresh_token_expiry, email_confirmed, confirmation_token, confirmation_token_expiry, created_at
 FROM users
 WHERE oauth_provider = $1 AND oauth_provider_id = $2
 `
-	user := &model.User{}
+	user := &domain.User{}
 	err := r.db.QueryRow(query, provider, providerID).Scan(&user.ID, &user.Email, &user.Password, &user.OAuthProvider, &user.OAuthProviderID, &user.RefreshToken, &user.RefreshTokenExpiry, &user.EmailConfirmed, &user.ConfirmationToken, &user.ConfirmationTokenExpiry, &user.CreatedAt)
 	if err != nil {
 		return nil, err
@@ -143,13 +143,13 @@ LIMIT 1
 }
 
 // FindByConfirmationToken retrieves a user by their confirmation token if it exists and is not expired.
-func (r *UserRepository) FindByConfirmationToken(token string) (*model.User, error) {
+func (r *UserRepository) FindByConfirmationToken(token string) (*domain.User, error) {
 	query := `
 SELECT id, email, password, oauth_provider, oauth_provider_id, refresh_token, refresh_token_expiry, email_confirmed, confirmation_token, confirmation_token_expiry, created_at
 FROM users 
 WHERE confirmation_token = $1 AND confirmation_token_expiry > NOW()
 `
-	user := &model.User{}
+	user := &domain.User{}
 	err := r.db.QueryRow(query, token).Scan(&user.ID, &user.Email, &user.Password, &user.OAuthProvider, &user.OAuthProviderID, &user.RefreshToken, &user.RefreshTokenExpiry, &user.EmailConfirmed, &user.ConfirmationToken, &user.ConfirmationTokenExpiry, &user.CreatedAt)
 	if err != nil {
 		return nil, err

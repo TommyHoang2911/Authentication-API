@@ -1,9 +1,9 @@
 package service
 
 import (
-	"auth-service/internal/model"
+	"auth-service/internal/domain"
 	"auth-service/internal/repository"
-	"auth-service/internal/service/websocket"
+	ws "auth-service/internal/transport/ws"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
@@ -11,16 +11,24 @@ import (
 	"time"
 )
 
+type qrUserService interface {
+	GetUserByID(id int64) (*domain.User, error)
+}
+
+type qrTokenService interface {
+	GenerateTokens(user *domain.User) (string, string, error)
+}
+
 // QRService handles QR code generation, verification, and exchange operations.
 type QRService struct {
-	authCodeRepo *repository.AuthCodeRepository
-	userService  *UserService
-	tokenService *TokenService
-	hub          *websocket.Hub
+	authCodeRepo repository.AuthCodeStore
+	userService  qrUserService
+	tokenService qrTokenService
+	hub          *ws.Hub
 }
 
 // NewQRService creates a new QRService instance.
-func NewQRService(authCodeRepo *repository.AuthCodeRepository, userService *UserService, tokenService *TokenService, hub *websocket.Hub) *QRService {
+func NewQRService(authCodeRepo repository.AuthCodeStore, userService qrUserService, tokenService qrTokenService, hub *ws.Hub) *QRService {
 	return &QRService{
 		authCodeRepo: authCodeRepo,
 		userService:  userService,
@@ -34,7 +42,7 @@ func (s *QRService) GenerateQRCode(deviceID string) (string, error) {
 	code := generateHashedQRCode(deviceID)
 	expiresAt := time.Now().Add(2 * time.Minute)
 
-	authCode := &model.AuthCode{
+	authCode := &domain.AuthCode{
 		UserID:    nil, // No user yet; will be linked when Device A verifies
 		Code:      code,
 		DeviceID:  deviceID,
@@ -65,7 +73,7 @@ func (s *QRService) VerifyQRCode(code string, userID int64) error {
 	tempCode := generateRefreshToken()
 	expiresAt := time.Now().Add(5 * time.Minute) // Short-lived temp code
 
-	tempAuthCode := &model.AuthCode{
+	tempAuthCode := &domain.AuthCode{
 		UserID:    &userID,
 		Code:      tempCode,
 		ExpiresAt: expiresAt,
@@ -89,7 +97,7 @@ func (s *QRService) VerifyQRCode(code string, userID int64) error {
 }
 
 // ExchangeCode exchanges the temporary code for JWT tokens.
-func (s *QRService) ExchangeCode(tempCode string) (*model.User, string, string, error) {
+func (s *QRService) ExchangeCode(tempCode string) (*domain.User, string, string, error) {
 	authCode, err := s.authCodeRepo.FindByCode(tempCode)
 	if err != nil {
 		return nil, "", "", errors.New("invalid or expired temp code")

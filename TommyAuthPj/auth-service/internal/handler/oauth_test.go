@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"auth-service/internal/model"
+	"auth-service/internal/domain"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -115,7 +115,7 @@ func TestAuthHandler_OAuthCallback(t *testing.T) {
 				Value: "abc",
 			},
 			setupMock: func(m *MockAuthService) {
-				user := &model.User{ID: 1, Email: "oauth@example.com"}
+				user := &domain.User{ID: 1, Email: "oauth@example.com"}
 				m.On("OAuthCallback", "google", "test-code").Return(user, "jwt-token", "refresh-token", nil)
 			},
 			expectedStatus: http.StatusOK,
@@ -129,7 +129,7 @@ func TestAuthHandler_OAuthCallback(t *testing.T) {
 				Value: "state123",
 			},
 			setupMock: func(m *MockAuthService) {
-				m.On("OAuthCallback", "facebook", "test-code").Return((*model.User)(nil), "", "", errors.New("oauth authentication failed"))
+				m.On("OAuthCallback", "facebook", "test-code").Return((*domain.User)(nil), "", "", errors.New("oauth authentication failed"))
 			},
 			expectedStatus: http.StatusUnauthorized,
 		},

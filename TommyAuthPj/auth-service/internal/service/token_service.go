@@ -1,33 +1,39 @@
 package service
 
 import (
-	"auth-service/internal/model"
+	"auth-service/internal/domain"
+	appjwt "auth-service/pkg/jwt"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
 	"time"
-
-	"github.com/golang-jwt/jwt/v5"
 )
+
+type tokenUserService interface {
+	CreateRefreshToken(userID int64, refreshToken string, expiry time.Time) error
+	FindRefreshToken(refreshToken string) (int64, error)
+	DeleteRefreshToken(refreshToken string) error
+	GetUserByID(id int64) (*domain.User, error)
+}
 
 // TokenService handles JWT token generation and validation.
 type TokenService struct {
-	userService *UserService
-	jwtSecret   string
+	userService  tokenUserService
+	tokenManager appjwt.Manager
 }
 
 // NewTokenService creates a new TokenService instance.
-func NewTokenService(userService *UserService, jwtSecret string) *TokenService {
+func NewTokenService(userService tokenUserService, tokenManager appjwt.Manager) *TokenService {
 	return &TokenService{
-		userService: userService,
-		jwtSecret:   jwtSecret,
+		userService:  userService,
+		tokenManager: tokenManager,
 	}
 }
 
 // GenerateTokens generates both JWT access token and refresh token for a user.
-func (s *TokenService) GenerateTokens(user *model.User) (string, string, error) {
+func (s *TokenService) GenerateTokens(user *domain.User) (string, string, error) {
 	// Generate JWT token
-	accessToken, err := s.generateJWTToken(user)
+	accessToken, err := s.tokenManager.GenerateToken(user, 24*time.Hour)
 	if err != nil {
 		return "", "", err
 	}
@@ -59,23 +65,12 @@ func (s *TokenService) RefreshToken(refreshToken string) (string, error) {
 	}
 
 	// Generate new JWT token
-	return s.generateJWTToken(user)
+	return s.tokenManager.GenerateToken(user, 24*time.Hour)
 }
 
 // SignOut invalidates the user's refresh token.
 func (s *TokenService) SignOut(refreshToken string) error {
 	return s.userService.DeleteRefreshToken(refreshToken)
-}
-
-// generateJWTToken creates a JWT token for the user.
-func (s *TokenService) generateJWTToken(user *model.User) (string, error) {
-	claims := jwt.MapClaims{
-		"email": user.Email,
-		"id":    user.ID,
-		"exp":   time.Now().Add(time.Hour * 24).Unix(),
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(s.jwtSecret))
 }
 
 // generateRefreshToken creates a cryptographically secure random refresh token

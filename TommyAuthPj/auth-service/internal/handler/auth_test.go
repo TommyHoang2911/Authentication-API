@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"auth-service/internal/model"
+	"auth-service/internal/domain"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -30,7 +30,7 @@ func TestAuthHandler_Register(t *testing.T) {
 				Password: "password123",
 			},
 			mockSetup: func(m *MockAuthService) {
-				user := &model.User{ID: 1, Email: "test@example.com"}
+				user := &domain.User{ID: 1, Email: "test@example.com"}
 				m.On("Register", "test@example.com", "password123").Return(user, nil)
 			},
 			expectedStatus: http.StatusCreated,
@@ -60,7 +60,7 @@ func TestAuthHandler_Register(t *testing.T) {
 				Password: "password123",
 			},
 			mockSetup: func(m *MockAuthService) {
-				m.On("Register", "test@example.com", "password123").Return((*model.User)(nil), errors.New("user already exists"))
+				m.On("Register", "test@example.com", "password123").Return((*domain.User)(nil), errors.New("user already exists"))
 			},
 			expectedStatus: http.StatusBadRequest,
 			expectedBody: map[string]interface{}{
@@ -121,7 +121,7 @@ func TestAuthHandler_Login(t *testing.T) {
 				Password: "password123",
 			},
 			mockSetup: func(m *MockAuthService) {
-				user := &model.User{ID: 1, Email: "test@example.com"}
+				user := &domain.User{ID: 1, Email: "test@example.com"}
 				m.On("Login", "test@example.com", "password123").Return(user, "jwt-token", "refresh-token", nil)
 			},
 			expectedStatus: http.StatusOK,
@@ -150,7 +150,7 @@ func TestAuthHandler_Login(t *testing.T) {
 				Password: "wrongpassword",
 			},
 			mockSetup: func(m *MockAuthService) {
-				m.On("Login", "test@example.com", "wrongpassword").Return((*model.User)(nil), "", "", errors.New("invalid credentials"))
+				m.On("Login", "test@example.com", "wrongpassword").Return((*domain.User)(nil), "", "", errors.New("invalid credentials"))
 			},
 			expectedStatus: http.StatusUnauthorized,
 			expectedBody: map[string]interface{}{
@@ -209,7 +209,7 @@ func TestAuthHandler_GetUser(t *testing.T) {
 			name:   "successful get user",
 			userID: int64(1),
 			mockSetup: func(m *MockAuthService) {
-				user := &model.User{ID: 1, Email: "test@example.com"}
+				user := &domain.User{ID: 1, Email: "test@example.com"}
 				m.On("GetUserByID", int64(1)).Return(user, nil)
 			},
 			expectedStatus: http.StatusOK,
@@ -233,7 +233,7 @@ func TestAuthHandler_GetUser(t *testing.T) {
 			name:   "service error",
 			userID: int64(1),
 			mockSetup: func(m *MockAuthService) {
-				m.On("GetUserByID", int64(1)).Return((*model.User)(nil), errors.New("user not found"))
+				m.On("GetUserByID", int64(1)).Return((*domain.User)(nil), errors.New("user not found"))
 			},
 			expectedStatus: http.StatusInternalServerError,
 			expectedBody: map[string]interface{}{

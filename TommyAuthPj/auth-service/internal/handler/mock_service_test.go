@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"auth-service/internal/model"
+	"auth-service/internal/domain"
 
 	"github.com/stretchr/testify/mock"
 )
@@ -11,14 +11,14 @@ type MockAuthService struct {
 	mock.Mock
 }
 
-func (m *MockAuthService) Register(email, password string) (*model.User, error) {
+func (m *MockAuthService) Register(email, password string) (*domain.User, error) {
 	args := m.Called(email, password)
-	return args.Get(0).(*model.User), args.Error(1)
+	return args.Get(0).(*domain.User), args.Error(1)
 }
 
-func (m *MockAuthService) Login(email, password string) (*model.User, string, string, error) {
+func (m *MockAuthService) Login(email, password string) (*domain.User, string, string, error) {
 	args := m.Called(email, password)
-	return args.Get(0).(*model.User), args.String(1), args.String(2), args.Error(3)
+	return args.Get(0).(*domain.User), args.String(1), args.String(2), args.Error(3)
 }
 
 func (m *MockAuthService) OAuthLoginURL(provider string, state string) (string, error) {
@@ -26,14 +26,14 @@ func (m *MockAuthService) OAuthLoginURL(provider string, state string) (string, 
 	return args.String(0), args.Error(1)
 }
 
-func (m *MockAuthService) OAuthCallback(provider, code string) (*model.User, string, string, error) {
+func (m *MockAuthService) OAuthCallback(provider, code string) (*domain.User, string, string, error) {
 	args := m.Called(provider, code)
-	return args.Get(0).(*model.User), args.String(1), args.String(2), args.Error(3)
+	return args.Get(0).(*domain.User), args.String(1), args.String(2), args.Error(3)
 }
 
-func (m *MockAuthService) GetUserByID(id int64) (*model.User, error) {
+func (m *MockAuthService) GetUserByID(id int64) (*domain.User, error) {
 	args := m.Called(id)
-	return args.Get(0).(*model.User), args.Error(1)
+	return args.Get(0).(*domain.User), args.Error(1)
 }
 
 func (m *MockAuthService) RefreshToken(refreshToken string) (string, error) {
@@ -56,9 +56,9 @@ func (m *MockAuthService) VerifyQRCode(code string, userID int64) error {
 	return args.Error(0)
 }
 
-func (m *MockAuthService) ExchangeCode(tempCode string) (*model.User, string, string, error) {
+func (m *MockAuthService) ExchangeCode(tempCode string) (*domain.User, string, string, error) {
 	args := m.Called(tempCode)
-	return args.Get(0).(*model.User), args.String(1), args.String(2), args.Error(3)
+	return args.Get(0).(*domain.User), args.String(1), args.String(2), args.Error(3)
 }
 
 func (m *MockAuthService) ConfirmEmail(token string) error {

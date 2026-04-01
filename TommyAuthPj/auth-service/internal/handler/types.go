@@ -1,19 +1,19 @@
 package handler
 
-import "auth-service/internal/model"
+import "auth-service/internal/domain"
 
 // AuthServiceInterface defines the methods needed by the handler
 type AuthServiceInterface interface {
-	Register(email, password string) (*model.User, error)
-	Login(email, password string) (*model.User, string, string, error)
+	Register(email, password string) (*domain.User, error)
+	Login(email, password string) (*domain.User, string, string, error)
 	OAuthLoginURL(provider string, state string) (string, error)
-	OAuthCallback(provider, code string) (*model.User, string, string, error)
-	GetUserByID(id int64) (*model.User, error)
+	OAuthCallback(provider, code string) (*domain.User, string, string, error)
+	GetUserByID(id int64) (*domain.User, error)
 	RefreshToken(refreshToken string) (string, error)
 	SignOut(refreshToken string) error
 	GenerateQRCode(deviceID string) (string, error)
 	VerifyQRCode(code string, userID int64) error
-	ExchangeCode(tempCode string) (*model.User, string, string, error)
+	ExchangeCode(tempCode string) (*domain.User, string, string, error)
 	ConfirmEmail(token string) error
 	ResendConfirmationEmail(email string) error
 }
@@ -79,31 +79,31 @@ type QRCodeResponse struct {
 }
 
 type UserEnvelope struct {
-	User *model.User `json:"user"`
+	User *domain.User `json:"user"`
 }
 
 type RegisterResponse struct {
-	Message string      `json:"message" example:"user registered successfully"`
-	User    *model.User `json:"user"`
+	Message string       `json:"message" example:"user registered successfully"`
+	User    *domain.User `json:"user"`
 }
 
 type LoginResponse struct {
-	Message      string      `json:"message" example:"login successful"`
-	User         *model.User `json:"user"`
-	Token        string      `json:"token" example:"jwt-token"`
-	RefreshToken string      `json:"refresh_token" example:"refresh-token"`
+	Message      string       `json:"message" example:"login successful"`
+	User         *domain.User `json:"user"`
+	Token        string       `json:"token" example:"jwt-token"`
+	RefreshToken string       `json:"refresh_token" example:"refresh-token"`
 }
 
 type OAuthLoginResponse struct {
-	Message      string      `json:"message" example:"oauth login successful"`
-	User         *model.User `json:"user"`
-	Token        string      `json:"token" example:"jwt-token"`
-	RefreshToken string      `json:"refresh_token" example:"refresh-token"`
+	Message      string       `json:"message" example:"oauth login successful"`
+	User         *domain.User `json:"user"`
+	Token        string       `json:"token" example:"jwt-token"`
+	RefreshToken string       `json:"refresh_token" example:"refresh-token"`
 }
 
 type ExchangeCodeResponse struct {
-	Message      string      `json:"message" example:"code exchanged successfully"`
-	User         *model.User `json:"user"`
-	Token        string      `json:"token" example:"jwt-token"`
-	SessionToken string      `json:"session_token" example:"refresh-token"`
+	Message      string       `json:"message" example:"code exchanged successfully"`
+	User         *domain.User `json:"user"`
+	Token        string       `json:"token" example:"jwt-token"`
+	SessionToken string       `json:"session_token" example:"refresh-token"`
 }

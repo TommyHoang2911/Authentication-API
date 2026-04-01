@@ -1,22 +1,21 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"log"
 	"os"
-	"strings"
+
+	appconfig "auth-service/internal/config"
 
 	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
 
-	"auth-service/config"
 	"auth-service/docs"
 	"auth-service/internal/handler"
 	"auth-service/internal/repository"
 	"auth-service/internal/service"
-	"auth-service/internal/service/websocket"
-	"auth-service/router"
+	httptransport "auth-service/internal/transport/http"
+	ws "auth-service/internal/transport/ws"
+	appjwt "auth-service/pkg/jwt"
 )
 
 // @title Auth Service API
@@ -29,17 +28,12 @@ import (
 // @name Authorization
 
 func main() {
-	err := godotenv.Load()
+	cfg, err := appconfig.Load()
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		log.Fatalf("configuration failed: %v", err)
 	}
 
-	appEnv := os.Getenv("APP_ENV")
-	if appEnv == "" {
-		appEnv = "production"
-	}
-
-	if appEnv == "development" {
+	if cfg.ShouldLogToFile() {
 		if err := os.MkdirAll("log", 0o755); err != nil {
 			log.Fatalf("failed to create log directory: %v", err)
 		}
@@ -58,60 +52,39 @@ func main() {
 		gin.DefaultErrorWriter = io.MultiWriter(os.Stderr, f)
 	}
 
-	dbURL := os.Getenv("DATABASE_URL")
-
-	if dbURL == "" {
-		db_user := os.Getenv("DB_USER")
-		db_pass := os.Getenv("DB_PASSWORD")
-		port := os.Getenv("PORT")
-		dbURL = fmt.Sprintf("postgresql://%s:%s@localhost:%s/authdb?sslmode=disable", db_user, db_pass, port)
-	}
-
-	db, err := config.InitDB(dbURL)
+	db, err := appconfig.InitDB(cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("database initialization failed: %v", err)
 	}
-	// defer db.Close()
+	defer db.Close()
 
-	// Run migrations
-	if err := config.RunMigrations(dbURL); err != nil {
+	if err := appconfig.RunMigrations(cfg.DatabaseURL); err != nil {
 		log.Fatalf("migration failed: %v", err)
 	}
 
 	userRepo := repository.NewUserRepository(db)
 	authCodeRepo := repository.NewAuthCodeRepository(db)
-	hub := websocket.NewHub()
+	hub := ws.NewHub()
+	tokenManager := appjwt.NewHMACManager(cfg.JWTSecret)
 
-	smtpHost := os.Getenv("SMTP_HOST")
-	smtpPort := os.Getenv("SMTP_PORT")
-	smtpUser := os.Getenv("SMTP_USER")
-	smtpPass := os.Getenv("SMTP_PASS")
-	smtpFrom := os.Getenv("SMTP_FROM")
-	baseURL := os.Getenv("BASE_URL")
-
-	emailService := service.NewEmailService(smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom, baseURL)
+	emailService := service.NewEmailService(cfg.SMTP.Host, cfg.SMTP.Port, cfg.SMTP.User, cfg.SMTP.Pass, cfg.SMTP.From, cfg.BaseURL)
 	oauthService := service.NewOAuthService(
-		os.Getenv("GOOGLE_OAUTH_CLIENT_ID"),
-		os.Getenv("GOOGLE_OAUTH_CLIENT_SECRET"),
-		os.Getenv("GOOGLE_OAUTH_REDIRECT_URL"),
-		os.Getenv("FACEBOOK_OAUTH_CLIENT_ID"),
-		os.Getenv("FACEBOOK_OAUTH_CLIENT_SECRET"),
-		os.Getenv("FACEBOOK_OAUTH_REDIRECT_URL"),
+		cfg.OAuth.GoogleClientID,
+		cfg.OAuth.GoogleClientSecret,
+		cfg.OAuth.GoogleRedirectURL,
+		cfg.OAuth.FacebookClientID,
+		cfg.OAuth.FacebookClientSecret,
+		cfg.OAuth.FacebookRedirectURL,
 	)
 
-	authService := service.NewAuthService(userRepo, authCodeRepo, emailService, oauthService, hub)
+	authService := service.NewAuthService(userRepo, authCodeRepo, emailService, oauthService, hub, tokenManager)
 	authHandler := handler.NewAuthHandler(authService)
 
-	// Enable Swagger documentation only in non-production environments
-	enableSwagger := appEnv != "production"
-	swaggerHostEnvKey := "SWAGGER_HOST_" + strings.ToUpper(appEnv)
-	swaggerHost := os.Getenv(swaggerHostEnvKey)
-	if enableSwagger {
-		if strings.TrimSpace(swaggerHost) == "" {
-			log.Fatalf("swagger is enabled but %s is not set or is empty", swaggerHostEnvKey)
-		}
-		docs.SwaggerInfo.Host = swaggerHost
+	if cfg.EnableSwagger {
+		docs.SwaggerInfo.Host = cfg.SwaggerHost
 	}
-	r := router.SetupRouter(authHandler, hub, enableSwagger)
-	r.Run(":8080")
+	r := httptransport.SetupRouter(authHandler, hub, tokenManager, cfg.EnableSwagger)
+	if err := r.Run(cfg.Address()); err != nil {
+		log.Fatalf("server failed: %v", err)
+	}
 }

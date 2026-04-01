@@ -1,4 +1,4 @@
-package model
+package domain
 
 import "time"
 
@@ -10,8 +10,8 @@ type User struct {
 	Password                string     `json:"-"`
 	OAuthProvider           *string    `json:"oauth_provider,omitempty"`
 	OAuthProviderID         *string    `json:"-"`
-	RefreshToken            string     `json:"-"`
-	RefreshTokenExpiry      time.Time  `json:"-"`
+	RefreshToken            *string    `json:"-"`
+	RefreshTokenExpiry      *time.Time `json:"-"`
 	EmailConfirmed          bool       `json:"email_confirmed"`
 	ConfirmationToken       *string    `json:"-"`
 	ConfirmationTokenExpiry *time.Time `json:"-"`
@@ -21,7 +21,7 @@ type User struct {
 // AuthCode represents a temporary authentication code for QR sign-in.
 type AuthCode struct {
 	ID        int64     `json:"id"`
-	UserID    *int64    `json:"user_id"` // nullable - user_id is set only after Device A verifies the code
+	UserID    *int64    `json:"user_id"`
 	Code      string    `json:"code"`
 	DeviceID  string    `json:"device_id"`
 	ExpiresAt time.Time `json:"expires_at"`

@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"auth-service/internal/model"
+	"auth-service/internal/domain"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -198,7 +198,7 @@ func TestAuthHandler_ExchangeCode(t *testing.T) {
 				TempCode: "valid-temp-code",
 			},
 			mockSetup: func(m *MockAuthService) {
-				user := &model.User{ID: 1, Email: "test@example.com"}
+				user := &domain.User{ID: 1, Email: "test@example.com"}
 				m.On("ExchangeCode", "valid-temp-code").Return(user, "new-jwt-token", "new-session-token", nil)
 			},
 			expectedStatus: http.StatusOK,
@@ -224,7 +224,7 @@ func TestAuthHandler_ExchangeCode(t *testing.T) {
 				TempCode: "invalid-temp-code",
 			},
 			mockSetup: func(m *MockAuthService) {
-				m.On("ExchangeCode", "invalid-temp-code").Return((*model.User)(nil), "", "", errors.New("invalid or expired temp code"))
+				m.On("ExchangeCode", "invalid-temp-code").Return((*domain.User)(nil), "", "", errors.New("invalid or expired temp code"))
 			},
 			expectedStatus: http.StatusUnauthorized,
 			expectedBody: map[string]interface{}{
