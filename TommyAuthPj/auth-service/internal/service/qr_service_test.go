@@ -1,13 +1,51 @@
 package service
 
 import (
+	"auth-service/internal/repository"
+	"auth-service/internal/testutil"
 	ws "auth-service/internal/transport/ws"
+	"regexp"
 	"testing"
+	"time"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-// TestQRService_NewQRService tests QRService creation
+// Test constants
+const (
+	testQRDeviceID   = "device-1"
+	testQRCode       = "qr-code"
+	testQRTempCode   = "temp-code"
+	testQRUserID     = int64(12)
+	testQRAuthCodeID = int64(1)
+	testQRNewCodeID  = int64(2)
+)
+
+// SQL query patterns
+var (
+	insertAuthCodeQuery = `
+INSERT INTO auth_codes (user_id, code, device_id, expires_at, used, created_at)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id
+`
+	selectAuthCodeQuery = `
+SELECT id, user_id, code, device_id, expires_at, used, created_at
+FROM auth_codes
+WHERE code = $1 AND used = FALSE AND expires_at > NOW()
+`
+	updateAuthCodeUsedQuery = `UPDATE auth_codes SET used = TRUE WHERE code = $1`
+)
+
+// setupQRServiceTest creates a QRService with mocked database for testing
+func setupQRServiceTest(t *testing.T) (*QRService, sqlmock.Sqlmock) {
+	db, sqlMock := testutil.NewSQLMock(t)
+	repo := repository.NewAuthCodeRepository(db)
+	hub := ws.NewHub()
+	return NewQRService(repo, nil, nil, hub), sqlMock
+}
+
 func TestQRService_NewQRService(t *testing.T) {
 	hub := ws.NewHub()
 	service := NewQRService(nil, nil, nil, hub)
@@ -15,29 +53,101 @@ func TestQRService_NewQRService(t *testing.T) {
 	assert.NotNil(t, service)
 }
 
-// TestQRService_GenerateQRCode_Structure tests QR code generation structure
-func TestQRService_GenerateQRCode_Structure(t *testing.T) {
-	hub := ws.NewHub()
-	service := NewQRService(nil, nil, nil, hub)
+// TestQRService_GenerateQRCode tests QR code generation
+func TestQRService_GenerateQRCode(t *testing.T) {
+	t.Run("successfully generates QR code", func(t *testing.T) {
+		service, sqlMock := setupQRServiceTest(t)
 
-	assert.NotNil(t, service)
-	// Integration tests would verify actual QR code generation
+		sqlMock.ExpectQuery(regexp.QuoteMeta(insertAuthCodeQuery)).
+			WithArgs(nil, sqlmock.AnyArg(), testQRDeviceID, sqlmock.AnyArg(), false, sqlmock.AnyArg()).
+			WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(testQRAuthCodeID))
+
+		code, err := service.GenerateQRCode(testQRDeviceID)
+		require.NoError(t, err)
+		assert.NotEmpty(t, code)
+		require.NoError(t, sqlMock.ExpectationsWereMet())
+	})
+
+	t.Run("database error on code insertion", func(t *testing.T) {
+		service, sqlMock := setupQRServiceTest(t)
+
+		sqlMock.ExpectQuery(regexp.QuoteMeta(insertAuthCodeQuery)).
+			WithArgs(nil, sqlmock.AnyArg(), testQRDeviceID, sqlmock.AnyArg(), false, sqlmock.AnyArg()).
+			WillReturnError(sqlmock.ErrCancelled)
+
+		code, err := service.GenerateQRCode(testQRDeviceID)
+		require.Error(t, err)
+		assert.Empty(t, code)
+		require.NoError(t, sqlMock.ExpectationsWereMet())
+	})
 }
 
-// TestQRService_VerifyQRCode_Structure tests QR code verification structure
-func TestQRService_VerifyQRCode_Structure(t *testing.T) {
-	hub := ws.NewHub()
-	service := NewQRService(nil, nil, nil, hub)
+// TestQRService_VerifyQRCode tests QR code verification and user linking
+func TestQRService_VerifyQRCode(t *testing.T) {
+	t.Run("successfully verifies QR code and links to user", func(t *testing.T) {
+		service, sqlMock := setupQRServiceTest(t)
+		now := time.Now().Add(time.Minute)
 
-	assert.NotNil(t, service)
-	// Integration tests would verify actual verification logic
+		sqlMock.ExpectQuery(regexp.QuoteMeta(selectAuthCodeQuery)).
+			WithArgs(testQRCode).
+			WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "code", "device_id", "expires_at", "used", "created_at"}).
+				AddRow(testQRAuthCodeID, nil, testQRCode, testQRDeviceID, now, false, now))
+
+		sqlMock.ExpectExec(regexp.QuoteMeta(updateAuthCodeUsedQuery)).
+			WithArgs(testQRCode).
+			WillReturnResult(sqlmock.NewResult(0, 1))
+
+		sqlMock.ExpectQuery(regexp.QuoteMeta(insertAuthCodeQuery)).
+			WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), "", sqlmock.AnyArg(), false, sqlmock.AnyArg()).
+			WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(testQRNewCodeID))
+
+		err := service.VerifyQRCode(testQRCode, testQRUserID)
+		require.NoError(t, err)
+		require.NoError(t, sqlMock.ExpectationsWereMet())
+	})
+
+	t.Run("QR code not found or expired", func(t *testing.T) {
+		service, sqlMock := setupQRServiceTest(t)
+
+		sqlMock.ExpectQuery(regexp.QuoteMeta(selectAuthCodeQuery)).
+			WithArgs(testQRCode).
+			WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "code", "device_id", "expires_at", "used", "created_at"}))
+
+		err := service.VerifyQRCode(testQRCode, testQRUserID)
+		require.EqualError(t, err, "invalid or expired code")
+		require.NoError(t, sqlMock.ExpectationsWereMet())
+	})
 }
 
-// TestQRService_ExchangeCode_Structure tests code exchange structure
-func TestQRService_ExchangeCode_Structure(t *testing.T) {
-	hub := ws.NewHub()
-	service := NewQRService(nil, nil, nil, hub)
+// TestQRService_ExchangeCode tests temporary code exchange for refresh token
+func TestQRService_ExchangeCode(t *testing.T) {
+	t.Run("temp code not linked to user", func(t *testing.T) {
+		service, sqlMock := setupQRServiceTest(t)
+		now := time.Now().Add(time.Minute)
 
-	assert.NotNil(t, service)
-	// Integration tests would verify actual code exchange
+		sqlMock.ExpectQuery(regexp.QuoteMeta(selectAuthCodeQuery)).
+			WithArgs(testQRTempCode).
+			WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "code", "device_id", "expires_at", "used", "created_at"}).
+				AddRow(int64(3), nil, testQRTempCode, "", now, false, now))
+
+		sqlMock.ExpectExec(regexp.QuoteMeta(updateAuthCodeUsedQuery)).
+			WithArgs(testQRTempCode).
+			WillReturnResult(sqlmock.NewResult(0, 1))
+
+		_, _, _, err := service.ExchangeCode(testQRTempCode)
+		require.EqualError(t, err, "temp code not linked to a user")
+		require.NoError(t, sqlMock.ExpectationsWereMet())
+	})
+
+	t.Run("code not found or expired", func(t *testing.T) {
+		service, sqlMock := setupQRServiceTest(t)
+
+		sqlMock.ExpectQuery(regexp.QuoteMeta(selectAuthCodeQuery)).
+			WithArgs(testQRTempCode).
+			WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "code", "device_id", "expires_at", "used", "created_at"}))
+
+		_, _, _, err := service.ExchangeCode(testQRTempCode)
+		require.EqualError(t, err, "invalid or expired temp code")
+		require.NoError(t, sqlMock.ExpectationsWereMet())
+	})
 }
