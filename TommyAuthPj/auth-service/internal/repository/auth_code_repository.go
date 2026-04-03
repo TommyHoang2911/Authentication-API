@@ -1,7 +1,7 @@
 package repository
 
 import (
-	"auth-service/internal/model"
+	"auth-service/internal/domain"
 	"database/sql"
 	"time"
 )
@@ -17,7 +17,7 @@ func NewAuthCodeRepository(db *sql.DB) *AuthCodeRepository {
 }
 
 // Create inserts a new auth code record.
-func (r *AuthCodeRepository) Create(authCode *model.AuthCode) error {
+func (r *AuthCodeRepository) Create(authCode *domain.AuthCode) error {
 	query := `
 INSERT INTO auth_codes (user_id, code, device_id, expires_at, used, created_at)
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -28,13 +28,13 @@ RETURNING id
 }
 
 // FindByCode retrieves an auth code by code if it exists, is not used, and not expired.
-func (r *AuthCodeRepository) FindByCode(code string) (*model.AuthCode, error) {
+func (r *AuthCodeRepository) FindByCode(code string) (*domain.AuthCode, error) {
 	query := `
 SELECT id, user_id, code, device_id, expires_at, used, created_at
 FROM auth_codes
 WHERE code = $1 AND used = FALSE AND expires_at > NOW()
 `
-	authCode := &model.AuthCode{}
+	authCode := &domain.AuthCode{}
 	err := r.db.QueryRow(query, code).Scan(&authCode.ID, &authCode.UserID, &authCode.Code, &authCode.DeviceID, &authCode.ExpiresAt, &authCode.Used, &authCode.CreatedAt)
 	if err != nil {
 		return nil, err

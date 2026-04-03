@@ -1,9 +1,10 @@
 package service
 
 import (
-	"auth-service/internal/model"
+	"auth-service/internal/domain"
 	"auth-service/internal/repository"
-	"auth-service/internal/service/websocket"
+	ws "auth-service/internal/transport/ws"
+	appjwt "auth-service/pkg/jwt"
 	"errors"
 )
 
@@ -16,12 +17,10 @@ type AuthService struct {
 	oauthService *OAuthService
 }
 
-const jwtSecret = "your-secret-key" // TODO: move to environment variable
-
 // NewAuthService constructs an AuthService with the provided repositories.
-func NewAuthService(repo *repository.UserRepository, authCodeRepo *repository.AuthCodeRepository, emailService *EmailService, oauthService *OAuthService, hub *websocket.Hub) *AuthService {
+func NewAuthService(repo repository.UserStore, authCodeRepo repository.AuthCodeStore, emailService EmailSender, oauthService *OAuthService, hub *ws.Hub, tokenManager appjwt.Manager) *AuthService {
 	userService := NewUserService(repo, emailService)
-	tokenService := NewTokenService(userService, jwtSecret)
+	tokenService := NewTokenService(userService, tokenManager)
 	qrService := NewQRService(authCodeRepo, userService, tokenService, hub)
 
 	return &AuthService{
@@ -33,12 +32,12 @@ func NewAuthService(repo *repository.UserRepository, authCodeRepo *repository.Au
 }
 
 // Register creates a new user record and hashes the password before storing.
-func (s *AuthService) Register(email string, password string) (*model.User, error) {
+func (s *AuthService) Register(email string, password string) (*domain.User, error) {
 	return s.userService.Register(email, password)
 }
 
 // Login authenticates a user and returns user data with tokens.
-func (s *AuthService) Login(email string, password string) (*model.User, string, string, error) {
+func (s *AuthService) Login(email string, password string) (*domain.User, string, string, error) {
 	user, err := s.userService.Login(email, password)
 	if err != nil {
 		return nil, "", "", err
@@ -53,7 +52,7 @@ func (s *AuthService) Login(email string, password string) (*model.User, string,
 }
 
 // GetUserByID retrieves a user by ID, omitting sensitive fields.
-func (s *AuthService) GetUserByID(id int64) (*model.User, error) {
+func (s *AuthService) GetUserByID(id int64) (*domain.User, error) {
 	return s.userService.GetUserByID(id)
 }
 
@@ -78,7 +77,7 @@ func (s *AuthService) VerifyQRCode(code string, userID int64) error {
 }
 
 // ExchangeCode exchanges the temporary code for JWT tokens.
-func (s *AuthService) ExchangeCode(tempCode string) (*model.User, string, string, error) {
+func (s *AuthService) ExchangeCode(tempCode string) (*domain.User, string, string, error) {
 	return s.qrService.ExchangeCode(tempCode)
 }
 
@@ -101,7 +100,7 @@ func (s *AuthService) OAuthLoginURL(provider string, state string) (string, erro
 }
 
 // OAuthCallback exchanges provider code for a local authenticated session.
-func (s *AuthService) OAuthCallback(provider, code string) (*model.User, string, string, error) {
+func (s *AuthService) OAuthCallback(provider, code string) (*domain.User, string, string, error) {
 	if s.oauthService == nil {
 		return nil, "", "", errors.New("oauth service not configured")
 	}

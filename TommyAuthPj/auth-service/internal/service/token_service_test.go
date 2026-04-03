@@ -1,6 +1,7 @@
 package service
 
 import (
+	appjwt "auth-service/pkg/jwt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -9,7 +10,7 @@ import (
 // TestTokenService_NewTokenService tests TokenService creation
 func TestTokenService_NewTokenService(t *testing.T) {
 	mockUserService := &UserService{}
-	service := NewTokenService(mockUserService, "test-secret")
+	service := NewTokenService(mockUserService, appjwt.NewHMACManager("test-secret"))
 
 	assert.NotNil(t, service)
 	assert.Equal(t, mockUserService, service.userService)
@@ -19,7 +20,7 @@ func TestTokenService_NewTokenService(t *testing.T) {
 // Real token generation requires database for refresh tokens
 func TestTokenService_GenerateTokens_Structure(t *testing.T) {
 	mockUserService := &UserService{}
-	service := NewTokenService(mockUserService, "test-secret-key-for-testing")
+	service := NewTokenService(mockUserService, appjwt.NewHMACManager("test-secret-key-for-testing"))
 
 	assert.NotNil(t, service)
 	// Real tests would require database setup
@@ -28,7 +29,7 @@ func TestTokenService_GenerateTokens_Structure(t *testing.T) {
 // TestTokenService_RefreshToken_Structure tests refresh token structure
 func TestTokenService_RefreshToken_Structure(t *testing.T) {
 	mockUserService := &UserService{}
-	service := NewTokenService(mockUserService, "test-secret-key-for-testing")
+	service := NewTokenService(mockUserService, appjwt.NewHMACManager("test-secret-key-for-testing"))
 
 	assert.NotNil(t, service)
 	// Real tests would require database setup
@@ -37,7 +38,7 @@ func TestTokenService_RefreshToken_Structure(t *testing.T) {
 // TestTokenService_SignOut_Structure tests sign out structure
 func TestTokenService_SignOut_Structure(t *testing.T) {
 	mockUserService := &UserService{}
-	service := NewTokenService(mockUserService, "test-secret-key-for-testing")
+	service := NewTokenService(mockUserService, appjwt.NewHMACManager("test-secret-key-for-testing"))
 
 	assert.NotNil(t, service)
 	// Real tests would require database setup

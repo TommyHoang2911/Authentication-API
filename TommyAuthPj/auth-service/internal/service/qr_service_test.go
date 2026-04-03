@@ -1,7 +1,7 @@
 package service
 
 import (
-	"auth-service/internal/service/websocket"
+	ws "auth-service/internal/transport/ws"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -9,7 +9,7 @@ import (
 
 // TestQRService_NewQRService tests QRService creation
 func TestQRService_NewQRService(t *testing.T) {
-	hub := websocket.NewHub()
+	hub := ws.NewHub()
 	service := NewQRService(nil, nil, nil, hub)
 
 	assert.NotNil(t, service)
@@ -17,7 +17,7 @@ func TestQRService_NewQRService(t *testing.T) {
 
 // TestQRService_GenerateQRCode_Structure tests QR code generation structure
 func TestQRService_GenerateQRCode_Structure(t *testing.T) {
-	hub := websocket.NewHub()
+	hub := ws.NewHub()
 	service := NewQRService(nil, nil, nil, hub)
 
 	assert.NotNil(t, service)
@@ -26,7 +26,7 @@ func TestQRService_GenerateQRCode_Structure(t *testing.T) {
 
 // TestQRService_VerifyQRCode_Structure tests QR code verification structure
 func TestQRService_VerifyQRCode_Structure(t *testing.T) {
-	hub := websocket.NewHub()
+	hub := ws.NewHub()
 	service := NewQRService(nil, nil, nil, hub)
 
 	assert.NotNil(t, service)
@@ -35,7 +35,7 @@ func TestQRService_VerifyQRCode_Structure(t *testing.T) {
 
 // TestQRService_ExchangeCode_Structure tests code exchange structure
 func TestQRService_ExchangeCode_Structure(t *testing.T) {
-	hub := websocket.NewHub()
+	hub := ws.NewHub()
 	service := NewQRService(nil, nil, nil, hub)
 
 	assert.NotNil(t, service)

@@ -2,46 +2,50 @@ package middleware
 
 import (
 	"log"
+	"net/http"
 	"strings"
 
+	appjwt "auth-service/pkg/jwt"
+
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
 )
 
-const jwtSecret = "your-secret-key" // TODO: move to environment variable
-
-func JWTAuthMiddleware() gin.HandlerFunc {
+func JWTAuthMiddleware(tokenManager appjwt.Manager) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
 			log.Printf("JWTAuthMiddleware: missing Authorization header")
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing Authorization header"})
 			return
 		}
 
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 		if tokenString == authHeader {
 			log.Printf("JWTAuthMiddleware: bearer token missing in Authorization header")
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid Authorization header format"})
 			return
 		}
 
-		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			return []byte(jwtSecret), nil
-		})
-		if err != nil || !token.Valid {
+		claims, err := tokenManager.ParseToken(tokenString)
+		if err != nil {
 			log.Printf("JWTAuthMiddleware: token parse/validation error: %v", err)
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
 			return
 		}
 
-		// Extract claims from token
-		claims, ok := token.Claims.(jwt.MapClaims)
-		if !ok {
-			log.Printf("JWTAuthMiddleware: invalid token claims")
+		id, exists := claims["id"]
+		if !exists {
+			log.Printf("JWTAuthMiddleware: missing id claim in token")
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token claims"})
 			return
 		}
-
-		// Set user_id from claims in context
-		if id, exists := claims["id"]; exists {
-			c.Set("user_id", int64(id.(float64)))
+		switch v := id.(type) {
+		case float64:
+			c.Set("user_id", int64(v))
+		default:
+			log.Printf("JWTAuthMiddleware: unexpected type for id claim: %T", id)
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token claims"})
+			return
 		}
 
 		c.Next()

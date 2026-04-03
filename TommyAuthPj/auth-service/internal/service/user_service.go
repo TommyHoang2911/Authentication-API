@@ -1,7 +1,7 @@
 package service
 
 import (
-	"auth-service/internal/model"
+	"auth-service/internal/domain"
 	"auth-service/internal/repository"
 	"crypto/rand"
 	"database/sql"
@@ -16,17 +16,17 @@ import (
 
 // UserService handles user-related operations like registration, login, and user retrieval.
 type UserService struct {
-	repo         *repository.UserRepository
+	repo         repository.UserStore
 	emailService EmailSender
 }
 
 // NewUserService creates a new UserService instance.
-func NewUserService(repo *repository.UserRepository, emailService EmailSender) *UserService {
+func NewUserService(repo repository.UserStore, emailService EmailSender) *UserService {
 	return &UserService{repo: repo, emailService: emailService}
 }
 
 // Register creates a new user record and hashes the password before storing.
-func (s *UserService) Register(email string, password string) (*model.User, error) {
+func (s *UserService) Register(email string, password string) (*domain.User, error) {
 	// hash the password using bcrypt with default cost
 	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
@@ -37,11 +37,11 @@ func (s *UserService) Register(email string, password string) (*model.User, erro
 	confirmationToken := generateConfirmationToken()
 	confirmationTokenExpiry := time.Now().Add(24 * time.Hour) // 24 hours
 
-	user := &model.User{
+	user := &domain.User{
 		Email:                   email,
 		Password:                string(hashed),
-		RefreshToken:            "",
-		RefreshTokenExpiry:      time.Time{},
+		RefreshToken:            nil,
+		RefreshTokenExpiry:      nil,
 		EmailConfirmed:          false,
 		ConfirmationToken:       &confirmationToken,
 		ConfirmationTokenExpiry: &confirmationTokenExpiry,
@@ -72,7 +72,7 @@ func (s *UserService) Register(email string, password string) (*model.User, erro
 }
 
 // Login authenticates a user and returns the user if credentials are valid.
-func (s *UserService) Login(email string, password string) (*model.User, error) {
+func (s *UserService) Login(email string, password string) (*domain.User, error) {
 	// fetch the user by email
 	user, err := s.repo.FindByEmail(email)
 	if err != nil {
@@ -93,7 +93,7 @@ func (s *UserService) Login(email string, password string) (*model.User, error) 
 }
 
 // GetOrCreateOAuthUser resolves an OAuth identity to a local user account.
-func (s *UserService) GetOrCreateOAuthUser(email, provider, providerID string) (*model.User, error) {
+func (s *UserService) GetOrCreateOAuthUser(email, provider, providerID string) (*domain.User, error) {
 	user, err := s.repo.FindByOAuth(provider, providerID)
 	if err == nil {
 		return user, nil
@@ -136,13 +136,13 @@ func (s *UserService) GetOrCreateOAuthUser(email, provider, providerID string) (
 	providerCopy := provider
 	providerIDCopy := providerID
 
-	newUser := &model.User{
+	newUser := &domain.User{
 		Email:                   email,
 		Password:                string(hashed),
 		OAuthProvider:           &providerCopy,
 		OAuthProviderID:         &providerIDCopy,
-		RefreshToken:            "",
-		RefreshTokenExpiry:      time.Time{},
+		RefreshToken:            nil,
+		RefreshTokenExpiry:      nil,
 		EmailConfirmed:          true,
 		ConfirmationToken:       nil,
 		ConfirmationTokenExpiry: nil,
@@ -157,15 +157,15 @@ func (s *UserService) GetOrCreateOAuthUser(email, provider, providerID string) (
 }
 
 // GetUserByID retrieves a user by ID, omitting sensitive fields.
-func (s *UserService) GetUserByID(id int64) (*model.User, error) {
+func (s *UserService) GetUserByID(id int64) (*domain.User, error) {
 	user, err := s.repo.FindByID(id)
 	if err != nil {
 		return nil, err
 	}
 	// Omit password and refresh token
 	user.Password = ""
-	user.RefreshToken = ""
-	user.RefreshTokenExpiry = time.Time{}
+	user.RefreshToken = nil
+	user.RefreshTokenExpiry = nil
 	return user, nil
 }
 
