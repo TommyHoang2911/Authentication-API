@@ -1,78 +1,143 @@
 # Auth Service
 
-This service provides user registration and authentication backed by PostgreSQL.
+Auth Service is a Go-based authentication backend with JWT auth, OAuth login, email confirmation, and QR/WebSocket login flow.
 
 ## Features
 
-- User registration and login
-- JWT-based authentication
-- QR code device binding
-- **Email confirmation required for login**
+- Email/password registration and login
+- JWT access token + refresh token flow
+- Email confirmation and resend confirmation
+- OAuth login (Google and Facebook)
+- QR login flow with WebSocket handoff
+- Swagger/OpenAPI documentation
+- Async email sending queue with retry strategy
+- PostgreSQL persistence with migrations
 
-## Setup
+## Project Structure
 
-1. Install PostgreSQL and create a database, e.g.: 
+- `cmd/server` - application entrypoint
+- `internal/config` - environment and runtime config
+- `internal/domain` - domain models
+- `internal/handler` - HTTP handlers
+- `internal/middleware` - auth middleware
+- `internal/repository` - database repositories
+- `internal/service` - business logic
+- `internal/service/queue` - async email worker queue
+- `internal/transport/http` - router setup
+- `internal/transport/ws` - WebSocket hub
+- `pkg/jwt` - JWT manager abstraction
+- `db/migrations` - SQL migrations
+
+## Requirements
+
+- Go 1.25+
+- PostgreSQL 14+
+
+## Configuration
+
+The service reads environment variables from your shell and `.env` (via `godotenv`).
+
+Core variables:
+
+- `APP_ENV` (`development`, `testing`, `production`)
+- `SERVER_PORT` (default `8080`)
+- `JWT_SECRET` (required)
+- `BASE_URL` (used for email confirmation links)
+- `DATABASE_URL` (recommended)
+
+If `DATABASE_URL` is not set, the service builds one from:
+
+- `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_SSLMODE`
+
+SMTP variables:
+
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`
+
+OAuth variables:
+
+- `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URL`
+- `FACEBOOK_OAUTH_CLIENT_ID`, `FACEBOOK_OAUTH_CLIENT_SECRET`, `FACEBOOK_OAUTH_REDIRECT_URL`
+
+Swagger host (required when swagger is enabled):
+
+- `SWAGGER_HOST_DEVELOPMENT` or `SWAGGER_HOST_TESTING` based on `APP_ENV`
+
+Email queue variables:
+
+- `EMAIL_QUEUE_WORKERS` (default `2`)
+- `EMAIL_QUEUE_BUFFER_SIZE` (default `100`)
+- `EMAIL_QUEUE_MAX_RETRIES` (default `3`)
+- `EMAIL_QUEUE_RETRY_DELAY_SECONDS` (default `1`)
+
+## Run Locally
+
+1. Create PostgreSQL database.
+2. Configure `.env` values.
+3. Start the service:
 
 ```sh
-createdb authdb
+go run ./cmd/server
 ```
 
-2. Run the migration script:
+The service runs on `http://localhost:8080` by default.
+
+Migrations are applied automatically on startup from `db/migrations`.
+
+4. Configure SMTP settings for email confirmation, including `SMTP_TIMEOUT_SECONDS` for SMTP network timeouts (default `10`).
+
+## Docker
+
+If you use Docker Compose in this repository:
 
 ```sh
-psql -d authdb -f config/migrations.sql
+docker compose up --build
 ```
 
-3. Set `DATABASE_URL` environment variable (optional). Default is:
-   `postgres://postgres:password@localhost:5432/authdb?sslmode=disable`.
+## API Documentation
 
-4. Configure SMTP settings for email confirmation (see .env.example)
+Swagger UI is enabled when `APP_ENV != production`.
 
-5. Build and run the service:
+- Swagger route: `/swagger/index.html`
+
+## Authentication Flows
+
+Email/password flow:
+
+1. `POST /register`
+2. Confirm email from confirmation link
+3. `POST /login`
+4. `POST /refresh-token`
+5. `POST /signout`
+
+OAuth flow:
+
+1. `GET /auth/{provider}`
+2. `GET /auth/{provider}/callback`
+
+QR login flow:
+
+1. Device B calls `POST /generate_qr`
+2. Device A (authenticated) calls `POST /verify_qr`
+3. Device B exchanges temporary code via `POST /exchange_code`
+
+## Email Queue Behavior
+
+- Registration and resend email requests enqueue jobs (non-blocking SMTP path).
+- Workers process jobs asynchronously.
+- Failed jobs retry with linear backoff.
+- Jobs that exceed max retries are logged and dropped.
+- Queue performs graceful shutdown and drains in-flight work.
+
+## Testing
+
+Run all tests:
 
 ```sh
-go build ./...
-./auth-service/server/main
+go test ./...
 ```
 
-The server listens on port `8080` by default.
+Run with coverage:
 
-## Email Confirmation
-
-Users must confirm their email address before they can log in. After registration, an email with a confirmation link is sent. Users need to click the link to activate their account.
-
-### API Endpoints
-
-- `POST /register` - Register a new user (sends confirmation email)
-- `POST /confirm-email` - Confirm email with token from email link
-- `POST /resend-confirmation` - Resend confirmation email
-- `POST /login` - Login (only works for confirmed users)
-
-## Generating QR Code for Device Binding
-
-Send a POST request to `/generate_qr` with JSON body containing the device_id:
-
-```json
-{
-  "device_id": "device-123"
-}
+```sh
+go test ./... -cover
 ```
-
-This will generate a hashed QR code that incorporates the device_id for security. The QR code can be scanned by an authenticated user to bind the device to their account.
-
-## Verifying QR Code
-
-Authenticated users can send a POST request to `/verify_qr` with the scanned code:
-
-```json
-{
-  "code": "scanned-qr-code"
-}
-```
-
-This will verify the code and send a temporary code back to the device via WebSocket for token exchange.
-
-## Notes
-
-- Passwords are stored in plaintext for now. Replace with hashing in production.
-- Add more fields or validation as needed.

@@ -1,10 +1,98 @@
 package service
 
 import (
+	"net"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+func TestNewEmailService_DefaultTimeout(t *testing.T) {
+	service := NewEmailService(
+		"localhost",
+		"1025",
+		"user",
+		"pass",
+		"noreply@example.com",
+		"http://localhost:3000",
+	)
+
+	assert.Equal(t, defaultSMTPTimeout, service.timeout)
+}
+
+func TestNewEmailServiceWithTimeout_InvalidTimeoutFallsBackToDefault(t *testing.T) {
+	service := NewEmailServiceWithTimeout(
+		"localhost",
+		"1025",
+		"user",
+		"pass",
+		"noreply@example.com",
+		"http://localhost:3000",
+		0,
+	)
+
+	assert.Equal(t, defaultSMTPTimeout, service.timeout)
+}
+
+func TestIsLoopbackSMTPHost(t *testing.T) {
+	tests := []struct {
+		name string
+		host string
+		want bool
+	}{
+		{name: "localhost name", host: "localhost", want: true},
+		{name: "ipv4 loopback", host: "127.0.0.1", want: true},
+		{name: "ipv6 loopback", host: "::1", want: true},
+		{name: "remote host", host: "smtp.gmail.com", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, isLoopbackSMTPHost(tt.host))
+		})
+	}
+}
+
+func TestEmailService_SendRegistrationConfirmation_TimesOut(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer listener.Close()
+
+	accepted := make(chan struct{})
+	go func() {
+		conn, acceptErr := listener.Accept()
+		if acceptErr != nil {
+			return
+		}
+		close(accepted)
+		defer conn.Close()
+		<-time.After(500 * time.Millisecond)
+	}()
+
+	host, port, err := net.SplitHostPort(listener.Addr().String())
+	require.NoError(t, err)
+
+	service := NewEmailServiceWithTimeout(
+		host,
+		port,
+		"",
+		"",
+		"noreply@example.com",
+		"http://localhost:3000",
+		100*time.Millisecond,
+	)
+
+	start := time.Now()
+	err = service.SendRegistrationConfirmation("user@example.com", "confirm-token-123")
+	elapsed := time.Since(start)
+
+	<-accepted
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "create smtp client")
+	assert.Less(t, elapsed, 400*time.Millisecond)
+}
 
 func TestEmailService_SendRegistrationConfirmation(t *testing.T) {
 	tests := []struct {
