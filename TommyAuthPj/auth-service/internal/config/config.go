@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	apperrors "auth-service/internal/errors"
@@ -16,11 +17,12 @@ import (
 )
 
 type SMTP struct {
-	Host string
-	Port string
-	User string
-	Pass string
-	From string
+	Host           string
+	Port           string
+	User           string
+	Pass           string
+	From           string
+	TimeoutSeconds int
 }
 
 type OAuth struct {
@@ -32,17 +34,27 @@ type OAuth struct {
 	FacebookRedirectURL  string
 }
 
+type EmailQueue struct {
+	Workers           int
+	BufferSize        int
+	MaxRetries        int
+	RetryDelaySeconds int
+}
+
 // App centralizes runtime configuration for the service.
 type App struct {
-	Env           string
-	ServerPort    string
-	DatabaseURL   string
-	JWTSecret     string
-	BaseURL       string
-	EnableSwagger bool
-	SwaggerHost   string
-	SMTP          SMTP
-	OAuth         OAuth
+	Env            string
+	ServerPort     string
+	DatabaseURL    string
+	JWTSecret      string
+	BaseURL        string
+	EnableSwagger  bool
+	EnablePprof    bool
+	PprofAuthToken string
+	SwaggerHost    string
+	SMTP           SMTP
+	EmailQueue     EmailQueue
+	OAuth          OAuth
 }
 
 func Load() (*App, error) {
@@ -51,17 +63,26 @@ func Load() (*App, error) {
 	env := getEnv("APP_ENV", "production")
 	serverPort := getEnv("SERVER_PORT", getEnv("PORT", "8080"))
 	cfg := &App{
-		Env:         env,
-		ServerPort:  serverPort,
-		DatabaseURL: databaseURL(),
-		JWTSecret:   os.Getenv("JWT_SECRET"),
-		BaseURL:     getEnv("BASE_URL", fmt.Sprintf("http://localhost:%s", serverPort)),
+		Env:            env,
+		ServerPort:     serverPort,
+		DatabaseURL:    databaseURL(),
+		JWTSecret:      os.Getenv("JWT_SECRET"),
+		BaseURL:        getEnv("BASE_URL", fmt.Sprintf("http://localhost:%s", serverPort)),
+		EnablePprof:    getEnvBool("ENABLE_PPROF", false),
+		PprofAuthToken: strings.TrimSpace(os.Getenv("PPROF_AUTH_TOKEN")),
 		SMTP: SMTP{
-			Host: os.Getenv("SMTP_HOST"),
-			Port: os.Getenv("SMTP_PORT"),
-			User: os.Getenv("SMTP_USER"),
-			Pass: os.Getenv("SMTP_PASS"),
-			From: os.Getenv("SMTP_FROM"),
+			Host:           os.Getenv("SMTP_HOST"),
+			Port:           os.Getenv("SMTP_PORT"),
+			User:           os.Getenv("SMTP_USER"),
+			Pass:           os.Getenv("SMTP_PASS"),
+			From:           os.Getenv("SMTP_FROM"),
+			TimeoutSeconds: getEnvInt("SMTP_TIMEOUT_SECONDS", 10),
+		},
+		EmailQueue: EmailQueue{
+			Workers:           getEnvInt("EMAIL_QUEUE_WORKERS", 2),
+			BufferSize:        getEnvInt("EMAIL_QUEUE_BUFFER_SIZE", 100),
+			MaxRetries:        getEnvInt("EMAIL_QUEUE_MAX_RETRIES", 3),
+			RetryDelaySeconds: getEnvInt("EMAIL_QUEUE_RETRY_DELAY_SECONDS", 1),
 		},
 		OAuth: OAuth{
 			GoogleClientID:       os.Getenv("GOOGLE_OAUTH_CLIENT_ID"),
@@ -101,6 +122,24 @@ func (c *App) Validate() error {
 	}
 	if strings.TrimSpace(c.ServerPort) == "" {
 		return apperrors.NewValidation("server port is required")
+	}
+	if c.EmailQueue.Workers <= 0 {
+		return apperrors.NewValidation("EMAIL_QUEUE_WORKERS must be greater than 0")
+	}
+	if c.EmailQueue.BufferSize <= 0 {
+		return apperrors.NewValidation("EMAIL_QUEUE_BUFFER_SIZE must be greater than 0")
+	}
+	if c.EmailQueue.MaxRetries < 0 {
+		return apperrors.NewValidation("EMAIL_QUEUE_MAX_RETRIES must be greater than or equal to 0")
+	}
+	if c.EmailQueue.RetryDelaySeconds <= 0 {
+		return apperrors.NewValidation("EMAIL_QUEUE_RETRY_DELAY_SECONDS must be greater than 0")
+	}
+	if c.SMTP.TimeoutSeconds <= 0 {
+		return apperrors.NewValidation("SMTP_TIMEOUT_SECONDS must be greater than 0")
+	}
+	if c.EnablePprof && c.Env == "production" && c.PprofAuthToken == "" {
+		return apperrors.NewValidation("PPROF_AUTH_TOKEN is required when ENABLE_PPROF=true in production")
 	}
 	return nil
 }
@@ -163,4 +202,36 @@ func getEnv(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func getEnvInt(key string, fallback int) int {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback
+	}
+
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: invalid integer value for %s=%q, using fallback %d: %v\n", key, value, fallback, err)
+		return fallback
+	}
+
+	return parsed
+}
+
+func getEnvBool(key string, fallback bool) bool {
+	value := strings.TrimSpace(strings.ToLower(os.Getenv(key)))
+	if value == "" {
+		return fallback
+	}
+
+	switch value {
+	case "1", "true", "yes", "on":
+		return true
+	case "0", "false", "no", "off":
+		return false
+	default:
+		fmt.Fprintf(os.Stderr, "warning: invalid boolean value for %s=%q, using fallback %t\n", key, value, fallback)
+		return fallback
+	}
 }

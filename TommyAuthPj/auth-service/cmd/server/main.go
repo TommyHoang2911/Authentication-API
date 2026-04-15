@@ -1,9 +1,14 @@
 package main
 
 import (
+	"context"
 	"io"
 	"log"
+	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	appconfig "auth-service/internal/config"
 
@@ -13,6 +18,7 @@ import (
 	"auth-service/internal/handler"
 	"auth-service/internal/repository"
 	"auth-service/internal/service"
+	"auth-service/internal/service/queue"
 	httptransport "auth-service/internal/transport/http"
 	ws "auth-service/internal/transport/ws"
 	appjwt "auth-service/pkg/jwt"
@@ -67,7 +73,26 @@ func main() {
 	hub := ws.NewHub()
 	tokenManager := appjwt.NewHMACManager(cfg.JWTSecret)
 
-	emailService := service.NewEmailService(cfg.SMTP.Host, cfg.SMTP.Port, cfg.SMTP.User, cfg.SMTP.Pass, cfg.SMTP.From, cfg.BaseURL)
+	emailService := service.NewEmailServiceWithTimeout(
+		cfg.SMTP.Host,
+		cfg.SMTP.Port,
+		cfg.SMTP.User,
+		cfg.SMTP.Pass,
+		cfg.SMTP.From,
+		cfg.BaseURL,
+		time.Duration(cfg.SMTP.TimeoutSeconds)*time.Second,
+	)
+	emailSender := queue.NewAsyncEmailSender(
+		emailService,
+		queue.Config{
+			Workers:    cfg.EmailQueue.Workers,
+			BufferSize: cfg.EmailQueue.BufferSize,
+			MaxRetries: cfg.EmailQueue.MaxRetries,
+			RetryDelay: time.Duration(cfg.EmailQueue.RetryDelaySeconds) * time.Second,
+		},
+		log.Default(),
+	)
+
 	oauthService := service.NewOAuthService(
 		cfg.OAuth.GoogleClientID,
 		cfg.OAuth.GoogleClientSecret,
@@ -77,14 +102,47 @@ func main() {
 		cfg.OAuth.FacebookRedirectURL,
 	)
 
-	authService := service.NewAuthService(userRepo, authCodeRepo, emailService, oauthService, hub, tokenManager)
+	authService := service.NewAuthService(userRepo, authCodeRepo, emailSender, oauthService, hub, tokenManager)
 	authHandler := handler.NewAuthHandler(authService)
 
 	if cfg.EnableSwagger {
 		docs.SwaggerInfo.Host = cfg.SwaggerHost
 	}
-	r := httptransport.SetupRouter(authHandler, hub, tokenManager, cfg.EnableSwagger)
-	if err := r.Run(cfg.Address()); err != nil {
-		log.Fatalf("server failed: %v", err)
+	r := httptransport.SetupRouter(authHandler, hub, tokenManager, cfg.EnableSwagger, cfg.EnablePprof, cfg.PprofAuthToken)
+
+	srv := &http.Server{
+		Addr:    cfg.Address(),
+		Handler: r,
+	}
+
+	// Start the HTTP server in a background goroutine so we can handle shutdown signals.
+	serverErr := make(chan error, 1)
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			serverErr <- err
+		}
+	}()
+
+	// Wait for SIGINT or SIGTERM.
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(quit)
+
+	select {
+	case err := <-serverErr:
+		log.Fatalf("server error: %v", err)
+	case <-quit:
+		log.Println("shutdown signal received")
+	}
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Printf("HTTP server shutdown error: %v", err)
+	}
+
+	if err := emailSender.Shutdown(shutdownCtx); err != nil {
+		log.Printf("email queue shutdown warning: %v", err)
 	}
 }

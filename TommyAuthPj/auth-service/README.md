@@ -83,6 +83,8 @@ The service runs on `http://localhost:8080` by default.
 
 Migrations are applied automatically on startup from `db/migrations`.
 
+4. Configure SMTP settings for email confirmation, including `SMTP_TIMEOUT_SECONDS` for SMTP network timeouts (default `10`).
+
 ## Docker
 
 If you use Docker Compose in this repository:
