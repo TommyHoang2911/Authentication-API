@@ -50,7 +50,8 @@ func TestAuthHandler_Register(t *testing.T) {
 			mockSetup:      func(m *MockAuthService) {},
 			expectedStatus: http.StatusBadRequest,
 			expectedBody: map[string]interface{}{
-				"error": "validation error",
+				"err_code":    "API_VALIDATION_ERROR",
+				"err_message": "invalid request",
 			},
 		},
 		{
@@ -64,7 +65,8 @@ func TestAuthHandler_Register(t *testing.T) {
 			},
 			expectedStatus: http.StatusBadRequest,
 			expectedBody: map[string]interface{}{
-				"error": "user already exists",
+				"err_code":    "SYS_ERROR",
+				"err_message": "user already exists",
 			},
 		},
 	}
@@ -96,7 +98,14 @@ func TestAuthHandler_Register(t *testing.T) {
 				user := response["user"].(map[string]interface{})
 				assert.Equal(t, tt.expectedBody["user"].(map[string]interface{})["email"], user["email"])
 			} else {
-				assert.NotEmpty(t, response["error"])
+				assert.NotEmpty(t, response["err_code"])
+				assert.NotEmpty(t, response["err_message"])
+				if expectedErrCode, ok := tt.expectedBody["err_code"]; ok {
+					assert.Equal(t, expectedErrCode, response["err_code"])
+				}
+				if expectedErrMsg, ok := tt.expectedBody["err_message"]; ok {
+					assert.Equal(t, expectedErrMsg, response["err_message"])
+				}
 			}
 
 			mockService.AssertExpectations(t)
@@ -154,7 +163,8 @@ func TestAuthHandler_Login(t *testing.T) {
 			},
 			expectedStatus: http.StatusUnauthorized,
 			expectedBody: map[string]interface{}{
-				"error": "invalid credentials",
+				"err_code":    "SYS_ERROR",
+				"err_message": "invalid credentials",
 			},
 		},
 	}
@@ -181,12 +191,19 @@ func TestAuthHandler_Login(t *testing.T) {
 			if tt.expectedBody != nil {
 				var response map[string]interface{}
 				json.Unmarshal(w.Body.Bytes(), &response)
-				assert.Equal(t, tt.expectedBody["message"], response["message"])
 				if tt.expectedStatus == http.StatusOK {
+					assert.Equal(t, tt.expectedBody["message"], response["message"])
 					assert.Equal(t, tt.expectedBody["token"], response["token"])
 					assert.Equal(t, tt.expectedBody["refresh_token"], response["refresh_token"])
 				} else {
-					assert.Equal(t, tt.expectedBody["error"], response["error"])
+					assert.NotEmpty(t, response["err_code"])
+					assert.NotEmpty(t, response["err_message"])
+					if expectedErrCode, ok := tt.expectedBody["err_code"]; ok {
+						assert.Equal(t, expectedErrCode, response["err_code"])
+					}
+					if expectedErrMsg, ok := tt.expectedBody["err_message"]; ok {
+						assert.Equal(t, expectedErrMsg, response["err_message"])
+					}
 				}
 			}
 
@@ -226,7 +243,8 @@ func TestAuthHandler_GetUser(t *testing.T) {
 			mockSetup:      func(m *MockAuthService) {},
 			expectedStatus: http.StatusUnauthorized,
 			expectedBody: map[string]interface{}{
-				"error": "user not authenticated",
+				"err_code":    "API_AUTH_ERROR",
+				"err_message": "user not authenticated",
 			},
 		},
 		{
@@ -237,7 +255,8 @@ func TestAuthHandler_GetUser(t *testing.T) {
 			},
 			expectedStatus: http.StatusInternalServerError,
 			expectedBody: map[string]interface{}{
-				"error": "failed to get user",
+				"err_code":    "SYS_ERROR",
+				"err_message": "user not found",
 			},
 		},
 	}
@@ -313,7 +332,8 @@ func TestAuthHandler_RefreshToken(t *testing.T) {
 			},
 			expectedStatus: http.StatusUnauthorized,
 			expectedBody: map[string]interface{}{
-				"error": "invalid refresh token",
+				"err_code":    "SYS_ERROR",
+				"err_message": "invalid refresh token",
 			},
 		},
 	}
@@ -340,8 +360,18 @@ func TestAuthHandler_RefreshToken(t *testing.T) {
 			if tt.expectedBody != nil {
 				var response map[string]interface{}
 				json.Unmarshal(w.Body.Bytes(), &response)
-				assert.Equal(t, tt.expectedBody["token"], response["token"])
-				assert.Equal(t, tt.expectedBody["error"], response["error"])
+				if tt.expectedStatus == http.StatusOK {
+					assert.Equal(t, tt.expectedBody["token"], response["token"])
+				} else {
+					assert.NotEmpty(t, response["err_code"])
+					assert.NotEmpty(t, response["err_message"])
+					if expectedErrCode, ok := tt.expectedBody["err_code"]; ok {
+						assert.Equal(t, expectedErrCode, response["err_code"])
+					}
+					if expectedErrMsg, ok := tt.expectedBody["err_message"]; ok {
+						assert.Equal(t, expectedErrMsg, response["err_message"])
+					}
+				}
 			}
 
 			mockService.AssertExpectations(t)
@@ -415,18 +445,20 @@ func TestAuthHandler_ConfirmEmail(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	tests := []struct {
-		name           string
-		query          string
-		mockSetup      func(*MockAuthService)
-		expectedStatus int
-		expectedError  string
+		name            string
+		query           string
+		mockSetup       func(*MockAuthService)
+		expectedStatus  int
+		expectedErrCode string
+		expectedErrMsg  string
 	}{
 		{
-			name:           "missing token",
-			query:          "",
-			mockSetup:      func(m *MockAuthService) {},
-			expectedStatus: http.StatusBadRequest,
-			expectedError:  "missing confirmation token",
+			name:            "missing token",
+			query:           "",
+			mockSetup:       func(m *MockAuthService) {},
+			expectedStatus:  http.StatusBadRequest,
+			expectedErrCode: "API_VALIDATION_ERROR",
+			expectedErrMsg:  "missing confirmation token",
 		},
 		{
 			name:  "service error",
@@ -434,8 +466,9 @@ func TestAuthHandler_ConfirmEmail(t *testing.T) {
 			mockSetup: func(m *MockAuthService) {
 				m.On("ConfirmEmail", "bad-token").Return(errors.New("invalid or expired confirmation token"))
 			},
-			expectedStatus: http.StatusBadRequest,
-			expectedError:  "invalid or expired confirmation token",
+			expectedStatus:  http.StatusBadRequest,
+			expectedErrCode: "SYS_ERROR",
+			expectedErrMsg:  "invalid or expired confirmation token",
 		},
 		{
 			name:  "successful confirmation",
@@ -469,7 +502,8 @@ func TestAuthHandler_ConfirmEmail(t *testing.T) {
 			if tt.expectedStatus == http.StatusOK {
 				assert.Equal(t, "email confirmed successfully", response["message"])
 			} else {
-				assert.Equal(t, tt.expectedError, response["error"])
+				assert.Equal(t, tt.expectedErrCode, response["err_code"])
+				assert.Equal(t, tt.expectedErrMsg, response["err_message"])
 			}
 
 			mockService.AssertExpectations(t)
@@ -481,30 +515,30 @@ func TestAuthHandler_ResendConfirmationEmail(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	tests := []struct {
-		name           string
-		requestBody    interface{}
-		mockSetup      func(*MockAuthService)
-		expectedStatus int
-		expectedError  string
+		name            string
+		requestBody     interface{}
+		mockSetup       func(*MockAuthService)
+		expectedStatus  int
+		expectedErrCode string
+		expectedErrMsg  string
 	}{
 		{
-			name: "missing email",
-			requestBody: map[string]interface{}{
-				"email": "",
-			},
-			mockSetup:      func(m *MockAuthService) {},
-			expectedStatus: http.StatusBadRequest,
+			name:            "missing email",
+			requestBody:     map[string]interface{}{},
+			mockSetup:       func(m *MockAuthService) {},
+			expectedStatus:  http.StatusBadRequest,
+			expectedErrCode: "API_VALIDATION_ERROR",
+			expectedErrMsg:  "invalid request",
 		},
 		{
-			name: "service error",
-			requestBody: ResendConfirmationRequest{
-				Email: "missing@example.com",
-			},
+			name:        "service error",
+			requestBody: ResendConfirmationRequest{Email: "missing@example.com"},
 			mockSetup: func(m *MockAuthService) {
 				m.On("ResendConfirmationEmail", "missing@example.com").Return(errors.New("user not found"))
 			},
-			expectedStatus: http.StatusBadRequest,
-			expectedError:  "user not found",
+			expectedStatus:  http.StatusBadRequest,
+			expectedErrCode: "SYS_ERROR",
+			expectedErrMsg:  "user not found",
 		},
 		{
 			name: "successful resend",
@@ -542,10 +576,9 @@ func TestAuthHandler_ResendConfirmationEmail(t *testing.T) {
 			assert.NoError(t, err)
 			if tt.expectedStatus == http.StatusOK {
 				assert.Equal(t, "confirmation email sent successfully", response["message"])
-			} else if tt.expectedError != "" {
-				assert.Equal(t, tt.expectedError, response["error"])
 			} else {
-				assert.NotEmpty(t, response["error"])
+				assert.Equal(t, tt.expectedErrCode, response["err_code"])
+				assert.Equal(t, tt.expectedErrMsg, response["err_message"])
 			}
 
 			mockService.AssertExpectations(t)

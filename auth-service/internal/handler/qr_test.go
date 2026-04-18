@@ -82,8 +82,9 @@ func TestAuthHandler_GenerateQR(t *testing.T) {
 
 			if tt.expectedStatus == http.StatusOK {
 				assert.Equal(t, tt.expectedBody["code"], response["code"])
-			} else if tt.expectedStatus == http.StatusInternalServerError {
-				assert.NotEmpty(t, response["error"])
+			} else {
+				assert.NotEmpty(t, response["err_code"])
+				assert.NotEmpty(t, response["err_message"])
 			}
 
 			mockService.AssertExpectations(t)
@@ -174,7 +175,8 @@ func TestAuthHandler_VerifyQR(t *testing.T) {
 			if tt.expectedStatus == http.StatusOK {
 				assert.Equal(t, tt.expectedBody["message"], response["message"])
 			} else {
-				assert.NotEmpty(t, response["error"])
+				assert.NotEmpty(t, response["err_code"])
+				assert.NotEmpty(t, response["err_message"])
 			}
 
 			mockService.AssertExpectations(t)
@@ -260,7 +262,8 @@ func TestAuthHandler_ExchangeCode(t *testing.T) {
 				assert.Equal(t, tt.expectedBody["token"], response["token"])
 				assert.Equal(t, tt.expectedBody["session_token"], response["session_token"])
 			} else {
-				assert.NotEmpty(t, response["error"])
+				assert.NotEmpty(t, response["err_code"])
+				assert.NotEmpty(t, response["err_message"])
 			}
 
 			mockService.AssertExpectations(t)

@@ -6,7 +6,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -68,7 +67,8 @@ func TestAuthHandler_OAuthLogin(t *testing.T) {
 				var response map[string]interface{}
 				err := json.Unmarshal(w.Body.Bytes(), &response)
 				assert.NoError(t, err)
-				assert.NotEmpty(t, response["error"])
+				assert.NotEmpty(t, response["err_code"])
+				assert.NotEmpty(t, response["err_message"])
 			}
 
 			mockService.AssertExpectations(t)
@@ -167,9 +167,8 @@ func TestAuthHandler_OAuthCallback(t *testing.T) {
 				assert.True(t, ok)
 				assert.Equal(t, "oauth@example.com", user["email"])
 			} else {
-				errVal, exists := response["error"]
-				assert.True(t, exists)
-				assert.NotEmpty(t, strings.TrimSpace(errVal.(string)))
+				assert.NotEmpty(t, response["err_code"])
+				assert.NotEmpty(t, response["err_message"])
 			}
 
 			mockService.AssertExpectations(t)

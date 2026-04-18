@@ -104,7 +104,7 @@ func TestTokenService_RefreshToken(t *testing.T) {
 			WillReturnError(sql.ErrNoRows)
 
 		_, err := service.RefreshToken(testBadToken)
-		require.EqualError(t, err, "invalid or expired refresh token")
+		require.EqualError(t, err, "[TKN_REFRESH_TOKEN_ERROR] invalid or expired refresh token")
 		require.NoError(t, sqlMock.ExpectationsWereMet())
 	})
 
@@ -145,7 +145,7 @@ func TestTokenService_RefreshToken(t *testing.T) {
 
 		_, err := service.RefreshToken(testToken)
 		require.Error(t, err)
-		require.Equal(t, "user not found", err.Error())
+		require.Equal(t, "[TKN_REFRESH_TOKEN_ERROR] user not found", err.Error())
 		require.NoError(t, sqlMock.ExpectationsWereMet())
 	})
 }

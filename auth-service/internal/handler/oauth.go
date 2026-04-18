@@ -6,6 +6,8 @@ import (
 	"log"
 	"net/http"
 
+	customErrors "auth-service/internal/errors"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -26,7 +28,7 @@ func (h *AuthHandler) OAuthLogin(c *gin.Context) {
 	url, err := h.authService.OAuthLoginURL(provider, state)
 	if err != nil {
 		log.Printf("OAuthLogin: failed to build auth url: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		RespondWithError(c, http.StatusBadRequest, err)
 		return
 	}
 	c.SetCookie("oauth_state", state, 600, "/", "", false, true)
@@ -63,7 +65,7 @@ func (h *AuthHandler) OAuthCallback(c *gin.Context) {
 	state := c.Query("state")
 
 	if code == "" || state == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "missing oauth code or state"})
+		RespondWithError(c, http.StatusBadRequest, customErrors.NewAPI("validation", "missing oauth code or state", nil))
 		return
 	}
 
@@ -71,7 +73,7 @@ func (h *AuthHandler) OAuthCallback(c *gin.Context) {
 	if err != nil || savedState != state {
 		// Expire oauth_state cookie to prevent state replay even on failure.
 		c.SetCookie("oauth_state", "", -1, "/", "", false, true)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid oauth state"})
+		RespondWithError(c, http.StatusBadRequest, customErrors.NewAPI("validation", "invalid oauth state", nil))
 		return
 	}
 	// State has been successfully validated; expire oauth_state cookie to prevent reuse.
@@ -80,7 +82,7 @@ func (h *AuthHandler) OAuthCallback(c *gin.Context) {
 	user, token, refreshToken, err := h.authService.OAuthCallback(provider, code)
 	if err != nil {
 		log.Printf("OAuthCallback: authentication failed: %v", err)
-		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		RespondWithError(c, http.StatusUnauthorized, err)
 		return
 	}
 
@@ -96,7 +98,7 @@ func generateOAuthState(c *gin.Context) string {
 	b := make([]byte, 16)
 	if _, err := rand.Read(b); err != nil {
 		log.Printf("OAuthLogin: Generate state failed: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		RespondWithError(c, http.StatusInternalServerError, customErrors.NewSystem("oauth_state", "failed to generate oauth state", err))
 		return ""
 	}
 	return hex.EncodeToString(b)

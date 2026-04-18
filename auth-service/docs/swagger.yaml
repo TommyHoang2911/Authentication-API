@@ -1,9 +1,23 @@
 basePath: /
 definitions:
+  domain.User:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      email_confirmed:
+        type: boolean
+      id:
+        type: integer
+      oauth_provider:
+        type: string
+    type: object
   handler.ErrorResponse:
     properties:
-      error:
-        example: invalid request
+      err_code:
+        type: string
+      err_message:
         type: string
     type: object
   handler.ExchangeCodeRequest:
@@ -25,7 +39,7 @@ definitions:
         example: jwt-token
         type: string
       user:
-        $ref: '#/definitions/model.User'
+        $ref: '#/definitions/domain.User'
     type: object
   handler.GenerateQRRequest:
     properties:
@@ -56,7 +70,7 @@ definitions:
         example: jwt-token
         type: string
       user:
-        $ref: '#/definitions/model.User'
+        $ref: '#/definitions/domain.User'
     type: object
   handler.MessageResponse:
     properties:
@@ -76,7 +90,7 @@ definitions:
         example: jwt-token
         type: string
       user:
-        $ref: '#/definitions/model.User'
+        $ref: '#/definitions/domain.User'
     type: object
   handler.QRCodeResponse:
     properties:
@@ -108,7 +122,7 @@ definitions:
         example: user registered successfully
         type: string
       user:
-        $ref: '#/definitions/model.User'
+        $ref: '#/definitions/domain.User'
     type: object
   handler.ResendConfirmationRequest:
     properties:
@@ -133,7 +147,7 @@ definitions:
   handler.UserEnvelope:
     properties:
       user:
-        $ref: '#/definitions/model.User'
+        $ref: '#/definitions/domain.User'
     type: object
   handler.VerifyQRRequest:
     properties:
@@ -141,19 +155,6 @@ definitions:
         type: string
     required:
     - code
-    type: object
-  model.User:
-    properties:
-      created_at:
-        type: string
-      email:
-        type: string
-      email_confirmed:
-        type: boolean
-      id:
-        type: integer
-      oauth_provider:
-        type: string
     type: object
 info:
   contact: {}

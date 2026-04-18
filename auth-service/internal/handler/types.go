@@ -1,6 +1,13 @@
 package handler
 
-import "auth-service/internal/domain"
+import (
+	"auth-service/internal/domain"
+	"fmt"
+
+	customErrors "auth-service/internal/errors"
+
+	"github.com/gin-gonic/gin"
+)
 
 // AuthServiceInterface defines the methods needed by the handler
 type AuthServiceInterface interface {
@@ -63,7 +70,8 @@ type ResendConfirmationRequest struct {
 }
 
 type ErrorResponse struct {
-	Error string `json:"error" example:"invalid request"`
+	ErrCode    string `json:"err_code"`
+	ErrMessage string `json:"err_message"`
 }
 
 type MessageResponse struct {
@@ -106,4 +114,25 @@ type ExchangeCodeResponse struct {
 	User         *domain.User `json:"user"`
 	Token        string       `json:"token" example:"jwt-token"`
 	SessionToken string       `json:"session_token" example:"refresh-token"`
+}
+
+// RespondWithError processes any error and forces it into the standardized format
+func RespondWithError(c *gin.Context, statusCode int, err error) {
+	var resp ErrorResponse
+
+	// Check if the error is our custom AppError
+	if appErr, ok := err.(*customErrors.AppError); ok {
+		resp = ErrorResponse{
+			ErrCode:    fmt.Sprint(appErr.Code),
+			ErrMessage: appErr.Message,
+		}
+	} else {
+		// For non-AppError, use a generic system error code
+		resp = ErrorResponse{
+			ErrCode:    "SYS_ERROR",
+			ErrMessage: err.Error(),
+		}
+	}
+
+	c.JSON(statusCode, resp)
 }

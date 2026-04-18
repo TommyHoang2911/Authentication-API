@@ -113,6 +113,7 @@ func (q *AsyncEmailSender) processWithRetry(workerID int, job EmailJob) {
 
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		if err := q.sender.SendRegistrationConfirmation(job.To, job.ConfirmationToken); err == nil {
+			q.logger.Printf("email queue worker=%d successfully sent email to=%s on attempt=%d", workerID, job.To, attempt)
 			return
 		} else {
 			lastErr = err
