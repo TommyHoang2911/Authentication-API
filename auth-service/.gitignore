@@ -1,5 +1,6 @@
 # Environment variables and configuration
 .env
+.env.docker
 .env.local
 .env.production
 .env.staging
