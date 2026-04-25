@@ -14,6 +14,8 @@ This service implements authentication and QR login flows using Gin.
 
 | Function | Endpoint | Request | Response | Note |
 | --- | --- | --- | --- | --- |
+| Health check liveness | `GET /health/liveness` | N/A | `200`<br>`{ "status":  "UP", "message": "Auth service is alive" }` | For CI/CD, make sure status system |
+| Health check rediness | `GET /health/readiness` | N/A | `200`<br>`{ "status":  "UP", "message": "Auth service is ready" }` | For CI/CD, make sure status system |
 | Register user | `POST /register` | `email` (string, required, email format)<br>`password` (string, required, min 8 chars) | `201`<br>`{ "message": "user registered successfully", "user": { "id": 1, "email": "..." } }` | Confirmation email sent automatically; user must confirm email before login |
 | Confirm email | `POST /confirm_email` | `token` (string, required) | `200`<br>`{ "message": "email confirmed successfully" }` | Validates email confirmation token |
 | Resend confirmation | `POST /resend_confirmation` | `email` (string, required, email format) | `200`<br>`{ "message": "confirmation email sent successfully" }` | Fails if email not found or already confirmed |
