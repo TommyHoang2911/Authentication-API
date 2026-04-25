@@ -87,10 +87,30 @@ Migrations are applied automatically on startup from `db/migrations`.
 
 ## Docker
 
-If you use Docker Compose in this repository:
+Run the auth service with Docker Compose using configuration from `.env.docker`:
 
 ```sh
 docker compose up --build
+```
+
+For detached mode:
+
+```sh
+docker compose up --build -d
+```
+
+Required environment variables include `DATABASE_URL`, `JWT_SECRET`, `BASE_URL`, and SMTP settings such as `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, and `SMTP_FROM`.
+
+When you are done, stop the stack with:
+
+```sh
+docker compose down
+```
+
+Monitoring logging the image:
+
+```sh
+docker compose logs -f auth_service
 ```
 
 ## API Documentation
