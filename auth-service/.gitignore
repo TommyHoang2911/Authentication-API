@@ -12,7 +12,6 @@ logger.log
 
 # Go build artifacts
 main
-server
 *.exe
 *.exe~
 *.dll
