@@ -4,9 +4,12 @@ WORKDIR /app
 
 RUN apk add --no-cache git make
 
+COPY go.mod go.sum ./
+RUN go mod download
+
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -mod=vendor -a -installsuffix cgo -o auth-api ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o auth-api ./cmd/server
 
 FROM alpine:latest
 
