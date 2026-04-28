@@ -25,6 +25,9 @@ jobs:
     - name: Run Unit Tests
       run: cd ./auth-service && go test -v -cover ./...
 
+    - name: Run reports suspicious constructs
+      run: cd ./auth-service && go vet -json ./...
+
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
