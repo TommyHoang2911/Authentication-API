@@ -4,6 +4,8 @@ import (
 	"log"
 	"net/http"
 
+	customErrors "auth-service/internal/errors"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -24,14 +26,14 @@ func (h *AuthHandler) GenerateQR(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		log.Printf("GenerateQR: invalid request: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		RespondWithError(c, http.StatusBadRequest, customErrors.NewAPI("validation", "invalid request", err))
 		return
 	}
 
 	code, err := h.authService.GenerateQRCode(req.DeviceID)
 	if err != nil {
 		log.Printf("GenerateQR: failed to generate code: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate QR code"})
+		RespondWithError(c, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -55,7 +57,7 @@ func (h *AuthHandler) VerifyQR(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
 		log.Printf("VerifyQR: user not authenticated")
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
+		RespondWithError(c, http.StatusUnauthorized, customErrors.NewAPI("auth", "user not authenticated", nil))
 		return
 	}
 
@@ -63,14 +65,14 @@ func (h *AuthHandler) VerifyQR(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		log.Printf("VerifyQR: invalid request: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		RespondWithError(c, http.StatusBadRequest, customErrors.NewAPI("validation", "invalid request", err))
 		return
 	}
 
 	err := h.authService.VerifyQRCode(req.Code, userID.(int64))
 	if err != nil {
 		log.Printf("VerifyQR: failed to verify code: %v", err)
-		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		RespondWithError(c, http.StatusUnauthorized, err)
 		return
 	}
 
@@ -94,14 +96,14 @@ func (h *AuthHandler) ExchangeCode(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		log.Printf("ExchangeCode: invalid request: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		RespondWithError(c, http.StatusBadRequest, customErrors.NewAPI("validation", "invalid request", err))
 		return
 	}
 
 	user, token, sessionToken, err := h.authService.ExchangeCode(req.TempCode)
 	if err != nil {
 		log.Printf("ExchangeCode: failed to exchange code: %v", err)
-		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		RespondWithError(c, http.StatusUnauthorized, err)
 		return
 	}
 

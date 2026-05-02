@@ -4,6 +4,8 @@ import (
 	"log"
 	"net/http"
 
+	customErrors "auth-service/internal/errors"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -23,14 +25,14 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		log.Printf("Register: invalid request: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		RespondWithError(c, http.StatusBadRequest, customErrors.NewAPI("validation", "invalid request", err))
 		return
 	}
 
 	user, err := h.authService.Register(req.Email, req.Password)
 	if err != nil {
 		log.Printf("Register: service error: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		RespondWithError(c, http.StatusBadRequest, err)
 		return
 	}
 
@@ -54,14 +56,14 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		log.Printf("Login: invalid request: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		RespondWithError(c, http.StatusBadRequest, customErrors.NewAPI("validation", "invalid request", err))
 		return
 	}
 
 	user, token, refreshToken, err := h.authService.Login(req.Email, req.Password)
 	if err != nil {
-		log.Printf("Login: authentication failed: %v", err)
-		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		log.Printf("Login error: %v", err)
+		RespondWithError(c, http.StatusUnauthorized, err)
 		return
 	}
 
@@ -88,14 +90,14 @@ func (h *AuthHandler) GetUser(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
 		log.Printf("GetUser: user not authenticated (missing user_id in context)")
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
+		RespondWithError(c, http.StatusUnauthorized, customErrors.NewAPI("auth", "user not authenticated", nil))
 		return
 	}
 
 	user, err := h.authService.GetUserByID(userID.(int64))
 	if err != nil {
 		log.Printf("GetUser: failed to retrieve user: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get user"})
+		RespondWithError(c, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -120,14 +122,14 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		log.Printf("RefreshToken: invalid request: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		RespondWithError(c, http.StatusBadRequest, customErrors.NewAPI("validation", "invalid request", err))
 		return
 	}
 
 	token, err := h.authService.RefreshToken(req.RefreshToken)
 	if err != nil {
 		log.Printf("RefreshToken: failed to refresh token: %v", err)
-		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		RespondWithError(c, http.StatusUnauthorized, err)
 		return
 	}
 
@@ -152,13 +154,13 @@ func (h *AuthHandler) SignOut(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		log.Printf("SignOut: invalid request: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		RespondWithError(c, http.StatusBadRequest, customErrors.NewAPI("validation", "invalid request", err))
 		return
 	}
 
 	if err := h.authService.SignOut(req.RefreshToken); err != nil {
 		log.Printf("SignOut: failed to sign out: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to sign out"})
+		RespondWithError(c, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -181,14 +183,14 @@ func (h *AuthHandler) ConfirmEmail(c *gin.Context) {
 
 	if token == "" {
 		log.Printf("ConfirmEmail: missing confirmation token")
-		c.JSON(http.StatusBadRequest, gin.H{"error": "missing confirmation token"})
+		RespondWithError(c, http.StatusBadRequest, customErrors.NewAPI("validation", "missing confirmation token", nil))
 		return
 	}
 	req.Token = token
 
 	if err := h.authService.ConfirmEmail(req.Token); err != nil {
 		log.Printf("ConfirmEmail: failed to confirm email: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		RespondWithError(c, http.StatusBadRequest, err)
 		return
 	}
 
@@ -211,13 +213,13 @@ func (h *AuthHandler) ResendConfirmationEmail(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		log.Printf("ResendConfirmationEmail: invalid request: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		RespondWithError(c, http.StatusBadRequest, customErrors.NewAPI("validation", "invalid request", err))
 		return
 	}
 
 	if err := h.authService.ResendConfirmationEmail(req.Email); err != nil {
 		log.Printf("ResendConfirmationEmail: failed to resend confirmation email: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		RespondWithError(c, http.StatusBadRequest, err)
 		return
 	}
 

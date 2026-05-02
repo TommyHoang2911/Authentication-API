@@ -561,12 +561,34 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "domain.User": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "email_confirmed": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "oauth_provider": {
+                    "type": "string"
+                }
+            }
+        },
         "handler.ErrorResponse": {
             "type": "object",
             "properties": {
-                "error": {
-                    "type": "string",
-                    "example": "invalid request"
+                "err_code": {
+                    "type": "string"
+                },
+                "err_message": {
+                    "type": "string"
                 }
             }
         },
@@ -597,7 +619,7 @@ const docTemplate = `{
                     "example": "jwt-token"
                 },
                 "user": {
-                    "$ref": "#/definitions/model.User"
+                    "$ref": "#/definitions/domain.User"
                 }
             }
         },
@@ -643,7 +665,7 @@ const docTemplate = `{
                     "example": "jwt-token"
                 },
                 "user": {
-                    "$ref": "#/definitions/model.User"
+                    "$ref": "#/definitions/domain.User"
                 }
             }
         },
@@ -672,7 +694,7 @@ const docTemplate = `{
                     "example": "jwt-token"
                 },
                 "user": {
-                    "$ref": "#/definitions/model.User"
+                    "$ref": "#/definitions/domain.User"
                 }
             }
         },
@@ -720,7 +742,7 @@ const docTemplate = `{
                     "example": "user registered successfully"
                 },
                 "user": {
-                    "$ref": "#/definitions/model.User"
+                    "$ref": "#/definitions/domain.User"
                 }
             }
         },
@@ -759,7 +781,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "user": {
-                    "$ref": "#/definitions/model.User"
+                    "$ref": "#/definitions/domain.User"
                 }
             }
         },
@@ -770,26 +792,6 @@ const docTemplate = `{
             ],
             "properties": {
                 "code": {
-                    "type": "string"
-                }
-            }
-        },
-        "model.User": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "email": {
-                    "type": "string"
-                },
-                "email_confirmed": {
-                    "type": "boolean"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "oauth_provider": {
                     "type": "string"
                 }
             }

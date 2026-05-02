@@ -2,10 +2,10 @@ package service
 
 import (
 	"auth-service/internal/domain"
+	apperrors "auth-service/internal/errors"
 	appjwt "auth-service/pkg/jwt"
 	"crypto/rand"
 	"encoding/hex"
-	"errors"
 	"time"
 )
 
@@ -35,7 +35,7 @@ func (s *TokenService) GenerateTokens(user *domain.User) (string, string, error)
 	// Generate JWT token
 	accessToken, err := s.tokenManager.GenerateToken(user, 24*time.Hour)
 	if err != nil {
-		return "", "", err
+		return "", "", apperrors.NewTokenService("generate_tokens", "failed to generate access token", err)
 	}
 
 	// Generate refresh token
@@ -44,7 +44,7 @@ func (s *TokenService) GenerateTokens(user *domain.User) (string, string, error)
 
 	// Create refresh token in database
 	if err := s.userService.CreateRefreshToken(user.ID, refreshToken, refreshTokenExpiry); err != nil {
-		return "", "", err
+		return "", "", apperrors.NewTokenService("generate_tokens", "failed to create refresh token", err)
 	}
 
 	return accessToken, refreshToken, nil
@@ -55,13 +55,13 @@ func (s *TokenService) RefreshToken(refreshToken string) (string, error) {
 	// Find user associated with the refresh token
 	userID, err := s.userService.FindRefreshToken(refreshToken)
 	if err != nil {
-		return "", errors.New("invalid or expired refresh token")
+		return "", apperrors.NewTokenService("refresh_token", "invalid or expired refresh token", err)
 	}
 
 	// Get user details
 	user, err := s.userService.GetUserByID(userID)
 	if err != nil {
-		return "", errors.New("user not found")
+		return "", apperrors.NewTokenService("refresh_token", "user not found", err)
 	}
 
 	// Generate new JWT token

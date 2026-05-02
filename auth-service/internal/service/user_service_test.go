@@ -138,7 +138,7 @@ func TestUserService_ConfirmEmail(t *testing.T) {
 			WillReturnError(sql.ErrNoRows)
 
 		err := service.ConfirmEmail(testUserServiceBadToken)
-		require.EqualError(t, err, "invalid or expired confirmation token")
+		require.EqualError(t, err, "[USC_CONFIRM_EMAIL_ERROR] invalid or expired confirmation token")
 		require.NoError(t, sqlMock.ExpectationsWereMet())
 	})
 }
@@ -174,7 +174,7 @@ func TestUserService_ResendConfirmationEmail(t *testing.T) {
 			WillReturnError(sql.ErrNoRows)
 
 		err := service.ResendConfirmationEmail(testUserServiceMissingEmail)
-		require.EqualError(t, err, "user not found")
+		require.EqualError(t, err, "[USC_RESEND_CONFIRMATION_EMAIL_ERROR] user not found")
 		require.NoError(t, sqlMock.ExpectationsWereMet())
 	})
 }

@@ -1,6 +1,7 @@
 package service
 
 import (
+	apperrors "auth-service/internal/errors"
 	"context"
 	"encoding/json"
 	"errors"
@@ -79,12 +80,12 @@ func (s *OAuthService) AuthCodeURL(provider, state string) (string, error) {
 func (s *OAuthService) Authenticate(provider, code string) (*OAuthUserInfo, error) {
 	cfg, err := s.providerConfig(provider)
 	if err != nil {
-		return nil, err
+		return nil, apperrors.NewOAuthService("authenticate", "unsupported oauth provider", err)
 	}
 
 	token, err := cfg.Exchange(context.Background(), code)
 	if err != nil {
-		return nil, err
+		return nil, apperrors.NewOAuthService("authenticate", "failed to exchange code for token", err)
 	}
 
 	switch strings.ToLower(provider) {
@@ -93,7 +94,7 @@ func (s *OAuthService) Authenticate(provider, code string) (*OAuthUserInfo, erro
 	case "facebook":
 		return s.fetchFacebookUser(token.AccessToken)
 	default:
-		return nil, errors.New("unsupported oauth provider")
+		return nil, apperrors.NewOAuthService("authenticate", "unsupported oauth provider", nil)
 	}
 }
 
@@ -101,34 +102,34 @@ func (s *OAuthService) providerConfig(provider string) (*oauth2.Config, error) {
 	switch strings.ToLower(provider) {
 	case "google":
 		if s.googleConfig == nil {
-			return nil, errors.New("google oauth is not configured")
+			return nil, apperrors.NewOAuthService("providerConfig", "google oauth is not configured", nil)
 		}
 		return s.googleConfig, nil
 	case "facebook":
 		if s.facebookConfig == nil {
-			return nil, errors.New("facebook oauth is not configured")
+			return nil, apperrors.NewOAuthService("providerConfig", "facebook oauth is not configured", nil)
 		}
 		return s.facebookConfig, nil
 	default:
-		return nil, errors.New("unsupported oauth provider")
+		return nil, apperrors.NewOAuthService("providerConfig", "unsupported oauth provider", nil)
 	}
 }
 
 func (s *OAuthService) fetchGoogleUser(accessToken string) (*OAuthUserInfo, error) {
 	req, err := http.NewRequest(http.MethodGet, "https://www.googleapis.com/oauth2/v2/userinfo", nil)
 	if err != nil {
-		return nil, err
+		return nil, apperrors.NewOAuthService("fetchGoogleUser", "failed to create request", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, apperrors.NewOAuthService("fetchGoogleUser", "failed to fetch user info", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("google userinfo request failed with status %d", resp.StatusCode)
+		return nil, apperrors.NewOAuthService("fetchGoogleUser", "google userinfo request failed", fmt.Errorf("status %d", resp.StatusCode))
 	}
 
 	var payload struct {
@@ -136,10 +137,10 @@ func (s *OAuthService) fetchGoogleUser(accessToken string) (*OAuthUserInfo, erro
 		Email string `json:"email"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
-		return nil, err
+		return nil, apperrors.NewOAuthService("fetchGoogleUser", "failed to decode user info", err)
 	}
 	if payload.ID == "" {
-		return nil, errors.New("google user id not found")
+		return nil, apperrors.NewOAuthService("fetchGoogleUser", "google user id not found", nil)
 	}
 
 	return &OAuthUserInfo{

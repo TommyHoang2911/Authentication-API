@@ -2,6 +2,7 @@ package service
 
 import (
 	"auth-service/internal/domain"
+	apperrors "auth-service/internal/errors"
 	"auth-service/internal/repository"
 	"crypto/rand"
 	"database/sql"
@@ -30,11 +31,15 @@ func (s *UserService) Register(email string, password string) (*domain.User, err
 	// hash the password using bcrypt with default cost
 	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		return nil, err
+		return nil, apperrors.NewUserService("register", "failed to hash password", err)
 	}
 
 	// Generate confirmation token
-	confirmationToken := generateConfirmationToken()
+	confirmationToken, err := generateConfirmationToken()
+	if err != nil {
+		return nil, apperrors.NewUserService("register", "failed to generate confirmation token", err)
+	}
+
 	confirmationTokenExpiry := time.Now().Add(24 * time.Hour) // 24 hours
 
 	user := &domain.User{
@@ -49,7 +54,7 @@ func (s *UserService) Register(email string, password string) (*domain.User, err
 	}
 
 	if err := s.repo.Create(user); err != nil {
-		return nil, err
+		return nil, apperrors.NewUserService("register", "failed to create user", err)
 	}
 
 	if s.emailService != nil {
@@ -64,7 +69,10 @@ func (s *UserService) Register(email string, password string) (*domain.User, err
 			// no return here to avoid blocking signup for email issues
 			// if you prefer hard failure, return err
 			// return nil, err
-			fmt.Printf("warning: failed to send registration email to %s: %v\n", user.Email, err)
+			fmt.Printf(
+				apperrors.NewUserService("register", "failed to send confirmation email %s", err).Error(),
+				user.Email,
+			)
 		}
 	}
 
@@ -76,17 +84,17 @@ func (s *UserService) Login(email string, password string) (*domain.User, error)
 	// fetch the user by email
 	user, err := s.repo.FindByEmail(email)
 	if err != nil {
-		return nil, err
+		return nil, apperrors.NewUserService("login", "user not found", err)
 	}
 
 	// Check if email is confirmed
 	if !user.EmailConfirmed {
-		return nil, errors.New("email not confirmed")
+		return nil, apperrors.NewUserService("login", "email not confirmed", err)
 	}
 
 	// verify password against stored hash
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
-		return nil, errors.New("invalid credentials")
+		return nil, apperrors.NewUserService("login", "invalid credentials", err)
 	}
 
 	return user, nil
@@ -127,10 +135,14 @@ func (s *UserService) GetOrCreateOAuthUser(email, provider, providerID string) (
 		}
 	}
 
-	placeholderPassword := generateConfirmationToken()
+	placeholderPassword, err := generateConfirmationToken()
+	if err != nil {
+		return nil, apperrors.NewUserService("register", "failed to generate confirmation token", err)
+	}
+
 	hashed, err := bcrypt.GenerateFromPassword([]byte(placeholderPassword), bcrypt.DefaultCost)
 	if err != nil {
-		return nil, err
+		return nil, apperrors.NewUserService("register", "failed to hash password", err)
 	}
 
 	providerCopy := provider
@@ -150,7 +162,7 @@ func (s *UserService) GetOrCreateOAuthUser(email, provider, providerID string) (
 	}
 
 	if err := s.repo.Create(newUser); err != nil {
-		return nil, err
+		return nil, apperrors.NewUserService("register", "failed to create user", err)
 	}
 
 	return newUser, nil
@@ -188,11 +200,11 @@ func (s *UserService) DeleteRefreshToken(refreshToken string) error {
 func (s *UserService) ConfirmEmail(token string) error {
 	user, err := s.repo.FindByConfirmationToken(token)
 	if err != nil {
-		return errors.New("invalid or expired confirmation token")
+		return apperrors.NewUserService("confirm_email", "invalid or expired confirmation token", err)
 	}
 
 	if user.EmailConfirmed {
-		return errors.New("email already confirmed")
+		return apperrors.NewUserService("confirm_email", "email already confirmed", nil)
 	}
 
 	return s.repo.ConfirmEmail(user.ID)
@@ -202,15 +214,15 @@ func (s *UserService) ConfirmEmail(token string) error {
 func (s *UserService) ResendConfirmationEmail(email string) error {
 	user, err := s.repo.FindByEmail(email)
 	if err != nil {
-		return errors.New("user not found")
+		return apperrors.NewUserService("resend_confirmation_email", "user not found", err)
 	}
 
 	if user.EmailConfirmed {
-		return errors.New("email already confirmed")
+		return apperrors.NewUserService("resend_confirmation_email", "email already confirmed", nil)
 	}
 
 	if user.ConfirmationToken == nil {
-		return errors.New("no confirmation token found")
+		return apperrors.NewUserService("resend_confirmation_email", "no confirmation token found", nil)
 	}
 
 	if s.emailService != nil {
@@ -228,10 +240,10 @@ func (s *UserService) ResendConfirmationEmail(email string) error {
 }
 
 // generateConfirmationToken creates a cryptographically secure confirmation token
-func generateConfirmationToken() string {
+func generateConfirmationToken() (string, error) {
 	bytes := make([]byte, 32) // 32 bytes = 64 hex characters
 	if _, err := rand.Read(bytes); err != nil {
-		panic(err) // This should never happen in practice
+		return "", err
 	}
-	return hex.EncodeToString(bytes)
+	return hex.EncodeToString(bytes), nil
 }
