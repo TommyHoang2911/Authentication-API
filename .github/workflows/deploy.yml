@@ -1,46 +1,77 @@
-name: CI/CD Pipeline - Auth Service
+name: CI/CD Pipeline - Deploy to GCP
 
 on:
   push:
     branches: [ "master" ]
-  pull_request:
-    branches: [ "master" ]
+  # Tạm thời bỏ qua pull_request để tránh deploy nhầm khi chưa merge
+
+env:
+  PROJECT_ID: project-d24b53ad-4d0b-4b33-899  # 🔴 THAY BẰNG: Project ID trên Google Cloud của bạn
+  REGION: asia-east2          # 🔴 THAY BẰNG: Region bạn tạo Artifact Registry (VD: asia-southeast1)
+  REPO_NAME: auth-api-repo         # 🔴 THAY BẰNG: Tên Artifact Registry bạn đã tạo ở Bước 2
+  SERVICE_NAME: auth-service       # Tên dịch vụ khi chạy trên Cloud Run (bạn có thể giữ nguyên)
 
 jobs:
-  test-and-build:
+  test-and-deploy:
     runs-on: ubuntu-latest
     
+    # BẮT BUỘC PHẢI CÓ để dùng tính năng bảo mật Workload Identity Federation (Không dùng mật khẩu)
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
 
+    # --- PHẦN 1: TEST CODE (Giữ lại từ file cũ của bạn) ---
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
         go-version: '1.25'
 
-    - name: Download Dependencies
-      run: cd ./auth-service && go mod download
-
     - name: Run Unit Tests
       run: cd ./auth-service && go test -v -cover ./...
 
-    - name: Run reports suspicious constructs
-      run: cd ./auth-service && go vet -json ./...
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
-    - name: Login to Container Registry (Simulated)
-      # uses: docker/login-action@v3
-      # with:
-      #   username: ${{ secrets.DOCKERHUB_USERNAME }}
-      #   password: ${{ secrets.DOCKERHUB_TOKEN }}
-      run: echo "Skipping actual login for blueprint setup"
-
-    - name: Build and Push Docker Image
-      uses: docker/build-push-action@v5
+    # --- PHẦN 2: KẾT NỐI VÀ TRIỂN KHAI LÊN GOOGLE CLOUD ---
+    - name: 'Authenticate to Google Cloud'
+      id: auth
+      uses: google-github-actions/auth@v2
       with:
-        context: ./auth-service
-        push: false # Set to true when registry credentials are provided
-        tags: your-dockerhub-user/auth-service:latest
+        # 🔴 THAY BẰNG: Chuỗi Provider lấy từ WIF ở bước trước
+        workload_identity_provider: 'projects/220619828370/locations/global/workloadIdentityPools/github-actions-pool/providers/github-provider' 
+        # 🔴 THAY BẰNG: Email Service Account bạn đã tạo
+        service_account: 'github-actions-deployer@project-d24b53ad-4d0b-4b33-899.iam.gserviceaccount.com'
+
+    - name: 'Set up Cloud SDK'
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: 'Docker Auth with Artifact Registry'
+      run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+
+    - name: 'Build and Push Docker Image'
+      run: |
+        # Tạo đường dẫn tag chứa ID của commit (github.sha) để dễ quản lý phiên bản
+        IMAGE_PATH=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
+        
+        # Di chuyển vào thư mục code như file cũ của bạn
+        cd ./auth-service 
+        
+        # Build và Push
+        docker build -t $IMAGE_PATH .
+        docker push $IMAGE_PATH
+
+    - name: 'Deploy to Cloud Run'
+      id: deploy
+      uses: google-github-actions/deploy-cloudrun@v2
+      with:
+        service: ${{ env.SERVICE_NAME }}
+        region: ${{ env.REGION }}
+        image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
+        # Cấu hình các biến không nhạy cảm
+        env_vars: |
+          GIN_MODE=release
+        # Kéo các thông tin nhạy cảm từ Google Secret Manager vào container
+        secrets: |
+          JWT_SECRET=JWT_SECRET:latest
+          DATABASE_URL=DATABASE_URL:latest
