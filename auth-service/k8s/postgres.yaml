@@ -1,0 +1,42 @@
+# 1. Tạo Service để Auth API có thể gọi tới thông qua tên miền "auth-postgres"
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-postgres
+spec:
+  selector:
+    app: postgres
+  ports:
+    - protocol: TCP
+      port: 5432
+      targetPort: 5432
+
+---
+# 2. Tạo Pod chạy Database PostgreSQL
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        ports:
+        - containerPort: 5432
+        # Thiết lập user/pass giống hệt với Secret của Auth API
+        env:
+        - name: POSTGRES_USER
+          value: "auth_user"
+        - name: POSTGRES_PASSWORD
+          value: "auth_password"
+        - name: POSTGRES_DB
+          value: "authdb"
