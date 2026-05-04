@@ -75,3 +75,4 @@ jobs:
         secrets: |
           JWT_SECRET=JWT_SECRET:latest
           DATABASE_URL=DATABASE_URL:latest
+        flags: '--add-cloudsql-instances=project-d24b53ad-4d0b-4b33-899:asia-east2-a:auth-postgres-instance'
