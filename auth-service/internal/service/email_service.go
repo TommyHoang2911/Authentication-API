@@ -121,7 +121,7 @@ func (s *EmailService) sendMail(addr string, auth smtp.Auth, from string, to []s
 	if err := client.Mail(cleanFrom); err != nil {
 		return fmt.Errorf("set smtp sender: %w", err)
 	}
-
+	
 	// In ra chuỗi hiển thị bình thường
 	log.Printf("[DEBUG-EMAIL-RCPT] Original string: '%s'", to[0])
 

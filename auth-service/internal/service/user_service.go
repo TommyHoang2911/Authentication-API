@@ -9,7 +9,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"time"
 
@@ -213,7 +212,6 @@ func (s *UserService) ConfirmEmail(token string) error {
 
 // ResendConfirmationEmail resends the confirmation email to a user.
 func (s *UserService) ResendConfirmationEmail(email string) error {
-	log.Printf("[DEBUG-QUEUE] Nhan request: '%s'", email)
 	user, err := s.repo.FindByEmail(email)
 	if err != nil {
 		return apperrors.NewUserService("resend_confirmation_email", "user not found", err)
@@ -233,7 +231,6 @@ func (s *UserService) ResendConfirmationEmail(email string) error {
 		if appEnv == "" {
 			send_to = user.Email
 		}
-		log.Printf("[DEBUG-QUEUE] Nhan request: '%s'", send_to)
 		if err := s.emailService.SendRegistrationConfirmation(send_to, *user.ConfirmationToken); err != nil {
 			return err
 		}
