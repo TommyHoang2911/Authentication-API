@@ -37,7 +37,7 @@ jobs:
       uses: google-github-actions/auth@v2
       with:
         # ✅ ĐÃ SỬA: Sử dụng đúng PROJECT_ID
-        workload_identity_provider: 'projects/project-d24b53ad-4d0b-4b33-899/locations/global/workloadIdentityPools/github-actions-pool/providers/github-provider' 
+        workload_identity_provider: 'projects/220619828370/locations/global/workloadIdentityPools/github-actions-pool/providers/github-provider' 
         service_account: 'github-actions-deployer@project-d24b53ad-4d0b-4b33-899.iam.gserviceaccount.com'
 
     - name: 'Set up Cloud SDK'
