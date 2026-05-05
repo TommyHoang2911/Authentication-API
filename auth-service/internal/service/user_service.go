@@ -59,9 +59,9 @@ func (s *UserService) Register(email string, password string) (*domain.User, err
 
 	if s.emailService != nil {
 		appEnv := os.Getenv("APP_ENV")
-		send_to := os.Getenv("SMTP_TO")
-		if appEnv == "" {
-			send_to = user.Email
+		send_to := user.Email
+		if appEnv == "development" {
+			send_to = os.Getenv("SMTP_TO")
 		}
 		if err := s.emailService.SendRegistrationConfirmation(send_to, confirmationToken); err != nil {
 			// registration valid but email failed; log and continue
@@ -227,9 +227,9 @@ func (s *UserService) ResendConfirmationEmail(email string) error {
 
 	if s.emailService != nil {
 		appEnv := os.Getenv("APP_ENV")
-		send_to := os.Getenv("SMTP_TO")
-		if appEnv == "" {
-			send_to = user.Email
+		send_to := user.Email
+		if appEnv == "development" {
+			send_to = os.Getenv("SMTP_TO")
 		}
 		if err := s.emailService.SendRegistrationConfirmation(send_to, *user.ConfirmationToken); err != nil {
 			return err
