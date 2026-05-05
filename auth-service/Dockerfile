@@ -21,6 +21,10 @@ COPY --from=builder /app/auth-api .
 
 COPY --from=builder /app/db/migrations ./db/migrations
 
+COPY --from=builder /app/templates ./templates
+
+COPY --from=builder /app/static ./static
+
 EXPOSE 8080
 
 CMD [ "./auth-api" ]
