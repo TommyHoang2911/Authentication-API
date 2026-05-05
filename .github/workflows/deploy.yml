@@ -67,7 +67,7 @@ jobs:
           SMTP_HOST=smtp.gmail.com
           SMTP_PORT=587
           SMTP_USER=hoangcongduyhy@gmail.com
-          SMTP_FROM=TommyAuthPrj
+          SMTP_FROM=hoangcongduyhy@gmail.com
           SMTP_TIMEOUT_SECONDS=10
           BASE_URL=https://auth-service-6ne3kq5ixa-df.a.run.app
           GOOGLE_OAUTH_CLIENT_ID=722094937324-hjm8pk51g3nuaat2mntjpr6iec2tspao.apps.googleusercontent.com
