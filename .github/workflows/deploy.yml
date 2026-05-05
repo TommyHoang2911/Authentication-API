@@ -6,16 +6,16 @@ on:
   # Tạm thời bỏ qua pull_request để tránh deploy nhầm khi chưa merge
 
 env:
-  PROJECT_ID: project-d24b53ad-4d0b-4b33-899  # 🔴 THAY BẰNG: Project ID trên Google Cloud của bạn
-  REGION: asia-east2          # 🔴 THAY BẰNG: Region bạn tạo Artifact Registry (VD: asia-southeast1)
-  REPO_NAME: auth-api-repo         # 🔴 THAY BẰNG: Tên Artifact Registry bạn đã tạo ở Bước 2
-  SERVICE_NAME: auth-service       # Tên dịch vụ khi chạy trên Cloud Run (bạn có thể giữ nguyên)
+  PROJECT_ID: project-d24b53ad-4d0b-4b33-899
+  REGION: asia-east2
+  REPO_NAME: auth-api-repo
+  SERVICE_NAME: auth-service
 
 jobs:
   test-and-deploy:
     runs-on: ubuntu-latest
     
-    # BẮT BUỘC PHẢI CÓ để dùng tính năng bảo mật Workload Identity Federation (Không dùng mật khẩu)
+    # BẮT BUỘC PHẢI CÓ để dùng tính năng bảo mật Workload Identity Federation
     permissions:
       contents: 'read'
       id-token: 'write'
@@ -24,7 +24,6 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    # --- PHẦN 1: TEST CODE (Giữ lại từ file cũ của bạn) ---
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
@@ -33,14 +32,12 @@ jobs:
     - name: Run Unit Tests
       run: cd ./auth-service && go test -v -cover ./...
 
-    # --- PHẦN 2: KẾT NỐI VÀ TRIỂN KHAI LÊN GOOGLE CLOUD ---
     - name: 'Authenticate to Google Cloud'
       id: auth
       uses: google-github-actions/auth@v2
       with:
-        # 🔴 THAY BẰNG: Chuỗi Provider lấy từ WIF ở bước trước
-        workload_identity_provider: 'projects/220619828370/locations/global/workloadIdentityPools/github-actions-pool/providers/github-provider' 
-        # 🔴 THAY BẰNG: Email Service Account bạn đã tạo
+        # ✅ ĐÃ SỬA: Sử dụng đúng PROJECT_ID
+        workload_identity_provider: 'projects/project-d24b53ad-4d0b-4b33-899/locations/global/workloadIdentityPools/github-actions-pool/providers/github-provider' 
         service_account: 'github-actions-deployer@project-d24b53ad-4d0b-4b33-899.iam.gserviceaccount.com'
 
     - name: 'Set up Cloud SDK'
@@ -51,13 +48,8 @@ jobs:
 
     - name: 'Build and Push Docker Image'
       run: |
-        # Tạo đường dẫn tag chứa ID của commit (github.sha) để dễ quản lý phiên bản
         IMAGE_PATH=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
-        
-        # Di chuyển vào thư mục code như file cũ của bạn
         cd ./auth-service 
-        
-        # Build và Push
         docker build -t $IMAGE_PATH .
         docker push $IMAGE_PATH
 
@@ -68,11 +60,36 @@ jobs:
         service: ${{ env.SERVICE_NAME }}
         region: ${{ env.REGION }}
         image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
-        # Cấu hình các biến không nhạy cảm
+        flags: '--add-cloudsql-instances=project-d24b53ad-4d0b-4b33-899:asia-east2:auth-postgres-instance'
+        
         env_vars: |
           GIN_MODE=release
-        # Kéo các thông tin nhạy cảm từ Google Secret Manager vào container
+          SMTP_HOST=smtp.gmail.com
+          SMTP_PORT=587
+          SMTP_USER=hoangcongduyhy@gmail.com
+          SMTP_FROM=TommyAuthPrj
+          SMTP_TIMEOUT_SECONDS=10
+          BASE_URL=https://auth-service-6ne3kq5ixa-df.a.run.app
+          GOOGLE_OAUTH_CLIENT_ID=722094937324-hjm8pk51g3nuaat2mntjpr6iec2tspao.apps.googleusercontent.com
+          GOOGLE_OAUTH_REDIRECT_URL=https://auth-service-6ne3kq5ixa-df.a.run.app/auth/google/callback
+          FACEBOOK_OAUTH_CLIENT_ID=980086261011416
+          FACEBOOK_OAUTH_REDIRECT_URL=https://auth-service-6ne3kq5ixa-df.a.run.app/auth/facebook/callback
+          SWAGGER_HOST_DEVELOPMENT=localhost:8080
+          SWAGGER_HOST_STAGING=staging-your-host.com
+          SWAGGER_HOST_PRODUCTION=auth-service-6ne3kq5ixa-df.a.run.app
+          APP_ENV=production
+          JWT_EXPIRES_IN=3600
+          JWT_REFRESH_EXPIRES_IN=86400
+          EMAIL_QUEUE_WORKERS=2
+          EMAIL_QUEUE_BUFFER_SIZE=100
+          EMAIL_QUEUE_MAX_RETRIES=3
+          EMAIL_QUEUE_RETRY_DELAY_SECONDS=1
+          ENABLE_PPROF=true
+          
         secrets: |
           JWT_SECRET=JWT_SECRET:latest
           DATABASE_URL=DATABASE_URL:latest
-        flags: '--add-cloudsql-instances=project-d24b53ad-4d0b-4b33-899:asia-east2:auth-postgres-instance'
+          PPROF_AUTH_TOKEN=PPROF_AUTH_TOKEN:latest
+          GOOGLE_OAUTH_CLIENT_SECRET=GOOGLE_OAUTH_CLIENT_SECRET:latest
+          FACEBOOK_OAUTH_CLIENT_SECRET=FACEBOOK_OAUTH_CLIENT_SECRET:latest
+          SMTP_PASS=SMTP_PASS:latest
