@@ -4,7 +4,9 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"net/mail"
 	"net/smtp"
+	"strings"
 	"time"
 )
 
@@ -107,12 +109,29 @@ func (s *EmailService) sendMail(addr string, auth smtp.Auth, from string, to []s
 		}
 	}
 
-	if err := client.Mail(from); err != nil {
+	fromAddr, err := mail.ParseAddress(from)
+	cleanFrom := from
+	if err == nil {
+		cleanFrom = fromAddr.Address
+	} else {
+		cleanFrom = strings.TrimSpace(from)
+	}
+
+	if err := client.Mail(cleanFrom); err != nil {
 		return fmt.Errorf("set smtp sender: %w", err)
 	}
 
+	// 2. Xử lý Envelope Recipient: Làm sạch từng email nhận
 	for _, recipient := range to {
-		if err := client.Rcpt(recipient); err != nil {
+		toAddr, err := mail.ParseAddress(recipient)
+		cleanTo := recipient
+		if err == nil {
+			cleanTo = toAddr.Address
+		} else {
+			cleanTo = strings.TrimSpace(recipient)
+		}
+
+		if err := client.Rcpt(cleanTo); err != nil {
 			return fmt.Errorf("set smtp recipient: %w", err)
 		}
 	}
