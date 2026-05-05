@@ -83,6 +83,7 @@ func NewAsyncEmailSender(sender service.EmailSender, cfg Config, logger *log.Log
 
 // SendRegistrationConfirmation enqueues an email job for async processing.
 func (q *AsyncEmailSender) SendRegistrationConfirmation(to, confirmationToken string) error {
+	log.Printf("[DEBUG-QUEUE] Đang đẩy vào hàng đợi email: '%s'", to)
 	q.mu.RLock()
 	defer q.mu.RUnlock()
 
