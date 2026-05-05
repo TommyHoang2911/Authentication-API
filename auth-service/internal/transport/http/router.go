@@ -23,6 +23,14 @@ func SetupRouter(authHandler *handler.AuthHandler, healthHandler *handler.Health
 		panic("failed to configure trusted proxies: " + err.Error())
 	}
 
+	r.LoadHTMLGlob("templates/*")
+	r.Static("/static", "static")
+	r.GET("/", func(c *gin.Context) {
+		c.HTML(http.StatusOK, "index.html", gin.H{
+			"title": "Welcome to Auth Service",
+		})
+	})
+
 	if enableSwagger {
 		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
 	}
