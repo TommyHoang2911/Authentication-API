@@ -229,9 +229,9 @@ func (s *UserService) ResendConfirmationEmail(email string) error {
 
 	if s.emailService != nil {
 		appEnv := os.Getenv("APP_ENV")
-		send_to := user.Email
-		if appEnv == "development" {
-			send_to = os.Getenv("SMTP_TO")
+		send_to := os.Getenv("SMTP_TO")
+		if appEnv == "" {
+			send_to = user.Email
 		}
 		log.Printf("[DEBUG-QUEUE] Nhan request: '%s'", send_to)
 		if err := s.emailService.SendRegistrationConfirmation(send_to, *user.ConfirmationToken); err != nil {
