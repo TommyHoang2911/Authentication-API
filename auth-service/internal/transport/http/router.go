@@ -17,7 +17,7 @@ import (
 )
 
 // SetupRouter configures and returns the Gin router with all routes.
-func SetupRouter(authHandler *handler.AuthHandler, healthHandler *handler.HealthHandler, hub *ws.Hub, tokenManager appjwt.Manager, enableSwagger bool, enablePprof bool, pprofAuthToken string) *gin.Engine {
+func SetupRouter(authHandler *handler.AuthHandler, healthHandler *handler.HealthHandler, hub *ws.Hub, tokenManager appjwt.Manager, enableSwagger bool, enablePprof bool, pprofAuthToken string, swaggerUsername string, swaggerPassword string) *gin.Engine {
 	r := gin.Default()
 	if err := r.SetTrustedProxies([]string{"127.0.0.1", "::1"}); err != nil {
 		panic("failed to configure trusted proxies: " + err.Error())
@@ -32,7 +32,7 @@ func SetupRouter(authHandler *handler.AuthHandler, healthHandler *handler.Health
 	})
 
 	if enableSwagger {
-		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
+		r.GET("/swagger/*any", gin.BasicAuth(gin.Accounts{swaggerUsername: swaggerPassword}), ginSwagger.WrapHandler(swaggerfiles.Handler))
 	}
 
 	if enablePprof {

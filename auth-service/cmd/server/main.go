@@ -109,7 +109,7 @@ func main() {
 	if cfg.EnableSwagger {
 		docs.SwaggerInfo.Host = cfg.SwaggerHost
 	}
-	r := httptransport.SetupRouter(authHandler, healthHandler, hub, tokenManager, cfg.EnableSwagger, cfg.EnablePprof, cfg.PprofAuthToken)
+	r := httptransport.SetupRouter(authHandler, healthHandler, hub, tokenManager, cfg.EnableSwagger, cfg.EnablePprof, cfg.PprofAuthToken, cfg.SwaggerUsername, cfg.SwaggerPassword)
 
 	srv := &http.Server{
 		Addr:    cfg.Address(),
