@@ -43,18 +43,20 @@ type EmailQueue struct {
 
 // App centralizes runtime configuration for the service.
 type App struct {
-	Env            string
-	ServerPort     string
-	DatabaseURL    string
-	JWTSecret      string
-	BaseURL        string
-	EnableSwagger  bool
-	EnablePprof    bool
-	PprofAuthToken string
-	SwaggerHost    string
-	SMTP           SMTP
-	EmailQueue     EmailQueue
-	OAuth          OAuth
+	Env             string
+	ServerPort      string
+	DatabaseURL     string
+	JWTSecret       string
+	BaseURL         string
+	EnableSwagger   bool
+	EnablePprof     bool
+	PprofAuthToken  string
+	SwaggerHost     string
+	SwaggerUsername string
+	SwaggerPassword string
+	SMTP            SMTP
+	EmailQueue      EmailQueue
+	OAuth           OAuth
 }
 
 func Load() (*App, error) {
@@ -94,12 +96,17 @@ func Load() (*App, error) {
 		},
 	}
 
-	cfg.EnableSwagger = cfg.Env != "production"
+	cfg.EnableSwagger = true
 	if cfg.EnableSwagger {
 		swaggerHostEnvKey := "SWAGGER_HOST_" + strings.ToUpper(cfg.Env)
 		cfg.SwaggerHost = os.Getenv(swaggerHostEnvKey)
 		if strings.TrimSpace(cfg.SwaggerHost) == "" {
 			return nil, apperrors.NewValidation(swaggerHostEnvKey + " is required when swagger is enabled")
+		}
+		cfg.SwaggerUsername = os.Getenv("SWAGGER_USERNAME")
+		cfg.SwaggerPassword = os.Getenv("SWAGGER_PASSWORD")
+		if strings.TrimSpace(cfg.SwaggerUsername) == "" || strings.TrimSpace(cfg.SwaggerPassword) == "" {
+			return nil, apperrors.NewValidation("SWAGGER_USERNAME and SWAGGER_PASSWORD are required when swagger is enabled")
 		}
 	}
 

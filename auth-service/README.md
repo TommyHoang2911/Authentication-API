@@ -115,7 +115,7 @@ docker compose logs -f auth_service
 
 ## API Documentation
 
-Swagger UI is enabled when `APP_ENV != production`.
+Swagger UI is enabled in all environments and protected by basic authentication. Contact to access Swagger (hoangcongduyhy@gmail.com)
 
 - Swagger route: `/swagger/index.html`
 
