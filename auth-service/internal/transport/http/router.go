@@ -9,8 +9,11 @@ import (
 	"net"
 	"net/http"
 	stdpprof "net/http/pprof"
+	"os"
 	"strings"
+	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	swaggerfiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -22,6 +25,18 @@ func SetupRouter(authHandler *handler.AuthHandler, healthHandler *handler.Health
 	if err := r.SetTrustedProxies([]string{"127.0.0.1", "::1"}); err != nil {
 		panic("failed to configure trusted proxies: " + err.Error())
 	}
+
+	config := cors.Config{
+		AllowOrigins:     []string{os.Getenv("BASE_URL")},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}
+
+	// Configure CORS middleware
+	r.Use(cors.New(config))
 
 	r.LoadHTMLGlob("templates/*")
 	r.Static("/static", "static")
