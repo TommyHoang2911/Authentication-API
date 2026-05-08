@@ -153,16 +153,70 @@ func TestUserService_ResendConfirmationEmail(t *testing.T) {
 		t.Setenv("SMTP_TO", "")
 
 		now := time.Now()
+		nonExpired := now.Add(time.Hour)
 		sqlMock.ExpectQuery(regexp.QuoteMeta(selectUserByEmailQuery)).
 			WithArgs(testUserServiceEmail).
 			WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password", "oauth_provider", "oauth_provider_id", "refresh_token", "refresh_token_expiry", "email_confirmed", "confirmation_token", "confirmation_token_expiry", "created_at"}).
-				AddRow(testUserServiceID, testUserServiceEmail, "hashed", nil, nil, "", now, false, testUserServiceConfirmToken, now, now))
+				AddRow(testUserServiceID, testUserServiceEmail, "hashed", nil, nil, "", now, false, testUserServiceConfirmToken, nonExpired, now))
 
 		emailSender.On("SendRegistrationConfirmation", testUserServiceEmail, testUserServiceConfirmToken).Return(nil)
 
 		err := service.ResendConfirmationEmail(testUserServiceEmail)
 		require.NoError(t, err)
 		emailSender.AssertExpectations(t)
+		require.NoError(t, sqlMock.ExpectationsWereMet())
+	})
+
+	t.Run("expired confirmation token refreshes token and resends email", func(t *testing.T) {
+		emailSender := &mockEmailSender{}
+		service, sqlMock := setupUserServiceTest(t, emailSender)
+
+		t.Setenv("APP_ENV", "")
+		t.Setenv("SMTP_TO", "")
+
+		expired := time.Now().Add(-time.Hour)
+		sqlMock.ExpectQuery(regexp.QuoteMeta(selectUserByEmailQuery)).
+			WithArgs(testUserServiceEmail).
+			WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password", "oauth_provider", "oauth_provider_id", "refresh_token", "refresh_token_expiry", "email_confirmed", "confirmation_token", "confirmation_token_expiry", "created_at"}).
+				AddRow(testUserServiceID, testUserServiceEmail, "hashed", nil, nil, "", expired, false, testUserServiceConfirmToken, expired, time.Now()))
+
+		sqlMock.ExpectExec(regexp.QuoteMeta(`UPDATE users SET confirmation_token = $1, confirmation_token_expiry = $2 WHERE id = $3`)).
+			WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), testUserServiceID).
+			WillReturnResult(sqlmock.NewResult(0, 1))
+
+		emailSender.On("SendRegistrationConfirmation", testUserServiceEmail, mock.AnythingOfType("string")).Return(nil)
+
+		err := service.ResendConfirmationEmail(testUserServiceEmail)
+		require.NoError(t, err)
+		emailSender.AssertExpectations(t)
+		require.NoError(t, sqlMock.ExpectationsWereMet())
+	})
+
+	t.Run("already confirmed email returns an error", func(t *testing.T) {
+		service, sqlMock := setupUserServiceTest(t, nil)
+
+		now := time.Now()
+		sqlMock.ExpectQuery(regexp.QuoteMeta(selectUserByEmailQuery)).
+			WithArgs(testUserServiceEmail).
+			WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password", "oauth_provider", "oauth_provider_id", "refresh_token", "refresh_token_expiry", "email_confirmed", "confirmation_token", "confirmation_token_expiry", "created_at"}).
+				AddRow(testUserServiceID, testUserServiceEmail, "hashed", nil, nil, "", now, true, testUserServiceConfirmToken, now, now))
+
+		err := service.ResendConfirmationEmail(testUserServiceEmail)
+		require.EqualError(t, err, "email already confirmed")
+		require.NoError(t, sqlMock.ExpectationsWereMet())
+	})
+
+	t.Run("missing confirmation token returns an error", func(t *testing.T) {
+		service, sqlMock := setupUserServiceTest(t, nil)
+
+		now := time.Now()
+		sqlMock.ExpectQuery(regexp.QuoteMeta(selectUserByEmailQuery)).
+			WithArgs(testUserServiceEmail).
+			WillReturnRows(sqlmock.NewRows([]string{"id", "email", "password", "oauth_provider", "oauth_provider_id", "refresh_token", "refresh_token_expiry", "email_confirmed", "confirmation_token", "confirmation_token_expiry", "created_at"}).
+				AddRow(testUserServiceID, testUserServiceEmail, "hashed", nil, nil, "", now, false, nil, nil, now))
+
+		err := service.ResendConfirmationEmail(testUserServiceEmail)
+		require.EqualError(t, err, "no confirmation token found")
 		require.NoError(t, sqlMock.ExpectationsWereMet())
 	})
 
