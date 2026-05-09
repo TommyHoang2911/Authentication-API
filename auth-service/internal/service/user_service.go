@@ -231,6 +231,18 @@ func (s *UserService) ResendConfirmationEmail(email string) error {
 		if appEnv == "development" {
 			send_to = os.Getenv("SMTP_TO")
 		}
+		if user.ConfirmationTokenExpiry != nil && time.Now().After(*user.ConfirmationTokenExpiry) {
+			newToken, err := generateConfirmationToken()
+			if err != nil {
+				return apperrors.NewUserService("resend_confirmation_email", "failed to generate new confirmation token", err)
+			}
+			newExpiry := time.Now().Add(24 * time.Hour)
+			if err := s.repo.UpdateConfirmationToken(user.ID, newToken, newExpiry); err != nil {
+				return apperrors.NewUserService("resend_confirmation_email", "failed to update confirmation token", err)
+			}
+			user.ConfirmationToken = &newToken
+			user.ConfirmationTokenExpiry = &newExpiry
+		}
 		if err := s.emailService.SendRegistrationConfirmation(send_to, *user.ConfirmationToken); err != nil {
 			return err
 		}
