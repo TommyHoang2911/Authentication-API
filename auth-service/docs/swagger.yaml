@@ -156,6 +156,13 @@ definitions:
     required:
     - code
     type: object
+  handler.CancelQRRequest:
+    properties:
+      code:
+        type: string
+    required:
+    - code
+    type: object
 info:
   contact: {}
   description: Authentication, OAuth, and QR login API for the auth service.
@@ -512,6 +519,38 @@ paths:
       security:
       - BearerAuth: []
       summary: Verify QR auth code
+      tags:
+      - QR
+  /cancel_qr:
+    post:
+      consumes:
+      - application/json
+      description: Cancel a generated QR code for the authenticated user.
+      parameters:
+      - description: Cancellation payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.CancelQRRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handler.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Cancel QR auth code
       tags:
       - QR
 schemes:

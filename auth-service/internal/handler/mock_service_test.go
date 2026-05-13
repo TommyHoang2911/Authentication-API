@@ -56,6 +56,11 @@ func (m *MockAuthService) VerifyQRCode(code string, userID int64) error {
 	return args.Error(0)
 }
 
+func (m *MockAuthService) CancelQRCode(code string) error {
+	args := m.Called(code)
+	return args.Error(0)
+}
+
 func (m *MockAuthService) ExchangeCode(tempCode string) (*domain.User, string, string, error) {
 	args := m.Called(tempCode)
 	return args.Get(0).(*domain.User), args.String(1), args.String(2), args.Error(3)

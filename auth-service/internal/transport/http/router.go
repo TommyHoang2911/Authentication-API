@@ -45,6 +45,11 @@ func SetupRouter(authHandler *handler.AuthHandler, healthHandler *handler.Health
 			"title": "Welcome to Auth Service",
 		})
 	})
+	r.GET("/device-A-scan-qr", func(ctx *gin.Context) {
+		ctx.HTML(http.StatusOK, "device-a.html", gin.H{
+			"title": "Device A - Scan QR Code",
+		})
+	})
 
 	if enableSwagger {
 		r.GET("/swagger/*any", gin.BasicAuth(gin.Accounts{swaggerUsername: swaggerPassword}), ginSwagger.WrapHandler(swaggerfiles.Handler))
@@ -75,6 +80,7 @@ func SetupRouter(authHandler *handler.AuthHandler, healthHandler *handler.Health
 		protected.POST("/sign_out", authHandler.SignOut)
 		protected.POST("/refresh_token", authHandler.RefreshToken)
 		protected.POST("/verify_qr", authHandler.VerifyQR)
+		protected.POST("/cancel_qr", authHandler.CancelQR)
 	}
 
 	return r
