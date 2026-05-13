@@ -20,6 +20,7 @@ type AuthServiceInterface interface {
 	SignOut(refreshToken string) error
 	GenerateQRCode(deviceID string) (string, error)
 	VerifyQRCode(code string, userID int64) error
+	CancelQRCode(code string) error
 	ExchangeCode(tempCode string) (*domain.User, string, string, error)
 	ConfirmEmail(token string) error
 	ResendConfirmationEmail(email string) error
@@ -52,6 +53,10 @@ type GenerateQRRequest struct {
 }
 
 type VerifyQRRequest struct {
+	Code string `json:"code" binding:"required"`
+}
+
+type CancelQRRequest struct {
 	Code string `json:"code" binding:"required"`
 }
 

@@ -3,12 +3,13 @@ package service
 import (
 	"auth-service/internal/domain"
 	"auth-service/internal/repository"
-	ws "auth-service/internal/transport/ws"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 type qrUserService interface {
@@ -19,16 +20,22 @@ type qrTokenService interface {
 	GenerateTokens(user *domain.User) (string, string, error)
 }
 
+type qrWebSocketHub interface {
+	SendMessage(code string, message map[string]interface{})
+	RegisterConnection(code string, conn *websocket.Conn)
+	UnregisterConnection(code string)
+}
+
 // QRService handles QR code generation, verification, and exchange operations.
 type QRService struct {
 	authCodeRepo repository.AuthCodeStore
 	userService  qrUserService
 	tokenService qrTokenService
-	hub          *ws.Hub
+	hub          qrWebSocketHub
 }
 
 // NewQRService creates a new QRService instance.
-func NewQRService(authCodeRepo repository.AuthCodeStore, userService qrUserService, tokenService qrTokenService, hub *ws.Hub) *QRService {
+func NewQRService(authCodeRepo repository.AuthCodeStore, userService qrUserService, tokenService qrTokenService, hub qrWebSocketHub) *QRService {
 	return &QRService{
 		authCodeRepo: authCodeRepo,
 		userService:  userService,
@@ -93,6 +100,22 @@ func (s *QRService) VerifyQRCode(code string, userID int64) error {
 	}
 	s.hub.SendMessage(code, message)
 
+	return nil
+}
+
+func (s *QRService) CancelQRCode(code string) error {
+	if err := s.authCodeRepo.MarkAsUsed(code); err != nil {
+		s.hub.SendMessage(code, map[string]interface{}{
+			"status":  "error",
+			"message": "Failed to cancel QR code",
+		})
+		return err
+	}
+
+	s.hub.SendMessage(code, map[string]interface{}{
+		"status":  "cancelled",
+		"message": "QR code has been cancelled",
+	})
 	return nil
 }
 

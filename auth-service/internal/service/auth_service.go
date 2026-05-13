@@ -76,6 +76,11 @@ func (s *AuthService) VerifyQRCode(code string, userID int64) error {
 	return s.qrService.VerifyQRCode(code, userID)
 }
 
+// CancelQRCode cancels the QR code login attempt and notifies Device B.
+func (s *AuthService) CancelQRCode(code string) error {
+	return s.qrService.CancelQRCode(code)
+}
+
 // ExchangeCode exchanges the temporary code for JWT tokens.
 func (s *AuthService) ExchangeCode(tempCode string) (*domain.User, string, string, error) {
 	return s.qrService.ExchangeCode(tempCode)

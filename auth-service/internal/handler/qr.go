@@ -79,6 +79,37 @@ func (h *AuthHandler) VerifyQR(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "QR code verified successfully"})
 }
 
+// CancelQR godoc
+// @Summary Cancel QR auth code
+// @Description Cancel a QR code that is no longer needed.
+// @Tags QR
+// @Accept json
+// @Produce json
+// @Param request body CancelQRRequest true "Cancellation payload"
+// @Success 200 {object} MessageResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /cancel_qr [post]
+// CancelQR cancels a QR code that is no longer needed
+func (h *AuthHandler) CancelQR(c *gin.Context) {
+	var req CancelQRRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("CancelQR: invalid request: %v", err)
+		RespondWithError(c, http.StatusBadRequest, customErrors.NewAPI("validation", "invalid request", err))
+		return
+	}
+
+	err := h.authService.CancelQRCode(req.Code)
+	if err != nil {
+		log.Printf("CancelQR: failed to cancel code: %v", err)
+		RespondWithError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "QR code cancelled successfully"})
+}
+
 // ExchangeCode godoc
 // @Summary Exchange temporary code
 // @Description Exchange a temporary QR authentication code for access tokens.

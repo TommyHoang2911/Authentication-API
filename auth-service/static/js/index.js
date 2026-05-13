@@ -11,14 +11,17 @@ const CONFIG = {
     API: {
         GENERATE_QR: '/generate_qr',
         EXCHANGE_CODE: '/exchange_code',
-        HEALTH_CHECK: '/health/readiness'
+        HEALTH_CHECK: '/health/readiness',
+        VERIFY_QR: '/verify_qr',
+        CANCEL_QR: '/cancel_qr'
     },
     UI: {
         TERMINAL_ID: 'qr-terminal',
         QR_CONTAINER_ID: 'qr-image-container',
         STATUS_INDICATOR_ID: 'status-indicator',
         STATUS_TEXT_ID: 'status-text',
-        FACEBOOK_BUTTON_ID: 'facebook-login'
+        FACEBOOK_BUTTON_ID: 'facebook-login',
+        DEVICE_A_BUTTON_ID: 'device-a-login'
     }
 };
 
@@ -298,6 +301,11 @@ const qrFlowManager = {
                 terminalLogger.logSuccess(`Đăng nhập thành công! 🎉`);
                 terminalLogger.logSuccess(`Access Token: ${tokenData.token}...`);
                 webSocketManager.close();
+            }else if (wsMsg.status === 'cancelled') {
+                terminalLogger.logError(`Đăng nhập thất bại: ${wsMsg.message}`);
+                webSocketManager.close();
+            } else {
+                terminalLogger.logWebSocket(`Tin nhắn không xác định: ${messageData}`);
             }
         } catch (error) {
             terminalLogger.logError(error.message);

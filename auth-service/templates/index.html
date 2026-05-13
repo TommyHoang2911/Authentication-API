@@ -77,19 +77,27 @@
             </a>
         </div>
 
-        <div class="flex flex-col space-y-3 pt-6">
+        <div class="flex flex-col space-y-3 pt-3 items-center">
             <button onclick="qrFlowManager.start()"
-                class="flex items-center justify-center space-x-2 bg-slate-700 hover:bg-slate-600 text-white py-3 px-4 rounded-lg font-medium transition duration-200 border border-slate-600">
+                class="w-full flex items-center justify-center space-x-2 bg-slate-700 hover:bg-slate-600 text-white py-3 px-4 rounded-lg font-medium transition duration-200 border border-slate-600">
                 <i class="fa-solid fa-qrcode"></i>
                 <span>Login with QR Code</span>
             </button>
 
-            <div id="qr-image-container" class="mt-6 flex justify-center hidden"></div>
+            <div id="qr-image-container" class="p-3 w-fit bg-white mt-6 justify-center hidden"></div>
 
             <div id="qr-terminal"
-                class="mt-4 p-4 bg-gray-900 text-green-400 font-mono text-sm rounded hidden h-64 overflow-y-auto whitespace-pre-wrap">
+                class="w-full mt-4 p-4 bg-gray-900 text-green-400 font-mono text-sm rounded hidden h-64 overflow-y-auto whitespace-pre-wrap">
             </div>
         </div>
+
+        <div class="flex flex-col space-y-3 pt-3">
+            <a href="/device-A-scan-qr" target="_blank"
+                class="flex items-center justify-center space-x-2 bg-slate-700 hover:bg-slate-600 text-white py-3 px-4 rounded-lg font-medium transition duration-200 border border-slate-600">
+                <span>📷 Scan QR Code</span>
+            </a>
+        </div>
+    </div>
     </div>
 
     <footer class="mt-8 text-slate-500 text-sm">

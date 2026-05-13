@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -149,5 +150,76 @@ func TestQRService_ExchangeCode(t *testing.T) {
 		_, _, _, err := service.ExchangeCode(testQRTempCode)
 		require.EqualError(t, err, "invalid or expired temp code")
 		require.NoError(t, sqlMock.ExpectationsWereMet())
+	})
+}
+
+// mockHub is a test mock for WebSocket Hub that captures sent messages
+type mockHub struct {
+	messages []map[string]interface{}
+	codes    []string
+}
+
+func newMockHub() *mockHub {
+	return &mockHub{
+		messages: make([]map[string]interface{}, 0),
+		codes:    make([]string, 0),
+	}
+}
+
+func (m *mockHub) SendMessage(code string, message map[string]interface{}) {
+	m.codes = append(m.codes, code)
+	m.messages = append(m.messages, message)
+}
+
+func (m *mockHub) RegisterConnection(code string, conn *websocket.Conn) {}
+func (m *mockHub) UnregisterConnection(code string)                 {}
+
+// setupQRServiceTestWithMockHub creates a QRService with mocked database and mock hub for testing
+func setupQRServiceTestWithMockHub(t *testing.T) (*QRService, sqlmock.Sqlmock, *mockHub) {
+	db, sqlMock := testutil.NewSQLMock(t)
+	repo := repository.NewAuthCodeRepository(db)
+	mockHub := newMockHub()
+	service := NewQRService(repo, nil, nil, mockHub)
+	return service, sqlMock, mockHub
+}
+
+// TestQRService_CancelQRCode tests QR code cancellation
+func TestQRService_CancelQRCode(t *testing.T) {
+	t.Run("successfully cancels QR code", func(t *testing.T) {
+		service, sqlMock, mockHub := setupQRServiceTestWithMockHub(t)
+
+		sqlMock.ExpectExec(regexp.QuoteMeta(updateAuthCodeUsedQuery)).
+			WithArgs(testQRCode).
+			WillReturnResult(sqlmock.NewResult(0, 1))
+
+		err := service.CancelQRCode(testQRCode)
+		require.NoError(t, err)
+		require.NoError(t, sqlMock.ExpectationsWereMet())
+
+		// Verify WebSocket message was sent
+		assert.Len(t, mockHub.messages, 1)
+		assert.Len(t, mockHub.codes, 1)
+		assert.Equal(t, testQRCode, mockHub.codes[0])
+		assert.Equal(t, "cancelled", mockHub.messages[0]["status"])
+		assert.Equal(t, "QR code has been cancelled", mockHub.messages[0]["message"])
+	})
+
+	t.Run("database error when marking code as used", func(t *testing.T) {
+		service, sqlMock, mockHub := setupQRServiceTestWithMockHub(t)
+
+		sqlMock.ExpectExec(regexp.QuoteMeta(updateAuthCodeUsedQuery)).
+			WithArgs(testQRCode).
+			WillReturnError(sqlmock.ErrCancelled)
+
+		err := service.CancelQRCode(testQRCode)
+		require.Error(t, err)
+		require.NoError(t, sqlMock.ExpectationsWereMet())
+
+		// Verify error WebSocket message was sent
+		assert.Len(t, mockHub.messages, 1)
+		assert.Len(t, mockHub.codes, 1)
+		assert.Equal(t, testQRCode, mockHub.codes[0])
+		assert.Equal(t, "error", mockHub.messages[0]["status"])
+		assert.Equal(t, "Failed to cancel QR code", mockHub.messages[0]["message"])
 	})
 }

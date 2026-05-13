@@ -48,6 +48,7 @@ Thumbs.db
 *.db
 *.sqlite
 *.sqlite3
+cert/
 
 # Temporary files
 *.tmp
