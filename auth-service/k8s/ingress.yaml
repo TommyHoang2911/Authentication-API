@@ -1,0 +1,42 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: auth-ingress
+  namespace: default
+  labels:
+    app: auth-service
+  annotations:
+    # Bắt buộc Ingress Controller (như Nginx) tự động chuyển hướng HTTP sang HTTPS
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+spec:
+  # 1. Cấu hình TLS (Bảo mật HTTPS)
+  tls:
+  - hosts:
+    - auth.local
+    - 192.168.11.100.nip.io
+    secretName: auth-tls-secret # Tên Secret chứa file .crt và .key bạn đã tạo ở bước trước
+
+  # 2. Cấu hình Rules (Định tuyến Traffic)
+  rules:
+  - host: auth.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: auth-service # Tên Service nội bộ của bạn
+            port:
+              number: 80 # Cổng nội bộ mà Service đang lắng nghe
+  - host: 192.168.11.100.nip.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: auth-service
+            port:
+              number: 80
