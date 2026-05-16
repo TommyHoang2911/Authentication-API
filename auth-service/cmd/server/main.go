@@ -18,7 +18,6 @@ import (
 	"auth-service/internal/handler"
 	"auth-service/internal/repository"
 	"auth-service/internal/service"
-	"auth-service/internal/service/queue"
 	httptransport "auth-service/internal/transport/http"
 	ws "auth-service/internal/transport/ws"
 	appjwt "auth-service/pkg/jwt"
@@ -73,25 +72,17 @@ func main() {
 	hub := ws.NewHub()
 	tokenManager := appjwt.NewHMACManager(cfg.JWTSecret)
 
-	emailService := service.NewEmailServiceWithTimeout(
-		cfg.SMTP.Host,
-		cfg.SMTP.Port,
-		cfg.SMTP.User,
-		cfg.SMTP.Pass,
-		cfg.SMTP.From,
-		cfg.BaseURL,
-		time.Duration(cfg.SMTP.TimeoutSeconds)*time.Second,
-	)
-	emailSender := queue.NewAsyncEmailSender(
-		emailService,
-		queue.Config{
-			Workers:    cfg.EmailQueue.Workers,
-			BufferSize: cfg.EmailQueue.BufferSize,
-			MaxRetries: cfg.EmailQueue.MaxRetries,
-			RetryDelay: time.Duration(cfg.EmailQueue.RetryDelaySeconds) * time.Second,
-		},
-		log.Default(),
-	)
+	notificationSender, err := service.NewNotificationEmailSender("localhost:50051", cfg.BaseURL)
+	if err != nil {
+		log.Fatalf("failed to initialize notification service client: %v", err)
+	}
+	defer func() {
+		if err := notificationSender.Close(); err != nil {
+			log.Printf("notification client shutdown error: %v", err)
+		}
+	}()
+
+	emailSender := notificationSender
 
 	oauthService := service.NewOAuthService(
 		cfg.OAuth.GoogleClientID,
@@ -141,9 +132,5 @@ func main() {
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Printf("HTTP server shutdown error: %v", err)
-	}
-
-	if err := emailSender.Shutdown(shutdownCtx); err != nil {
-		log.Printf("email queue shutdown warning: %v", err)
 	}
 }

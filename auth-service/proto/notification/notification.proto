@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package notification;
+
+// Thay đổi theo module name trong file go.mod của bạn
+option go_package = "github.com/TommyHoang2911/Authentication-API/pb/notification";
+
+service NotificationService {
+  // Định nghĩa hàm gọi từ xa
+  rpc SendEmail (SendEmailRequest) returns (SendEmailResponse);
+}
+
+message SendEmailRequest {
+  string to_email = 1;
+  string subject = 2;
+  string body = 3;
+}
+
+message SendEmailResponse {
+  bool success = 1;
+  string message = 2;
+}
