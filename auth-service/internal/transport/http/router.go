@@ -22,12 +22,37 @@ import (
 // SetupRouter configures and returns the Gin router with all routes.
 func SetupRouter(authHandler *handler.AuthHandler, healthHandler *handler.HealthHandler, hub *ws.Hub, tokenManager appjwt.Manager, enableSwagger bool, enablePprof bool, pprofAuthToken string, swaggerUsername string, swaggerPassword string) *gin.Engine {
 	r := gin.Default()
-	if err := r.SetTrustedProxies([]string{"127.0.0.1", "::1"}); err != nil {
-		panic("failed to configure trusted proxies: " + err.Error())
-	}
 
+	// 1. Cập nhật Trusted Proxies cho Kubernetes
+	// Trong môi trường K8s nội bộ, cách nhanh nhất là set nil để trust các proxy trong mạng (Ingress)
+	// Hoặc bạn có thể lấy dải IP nội bộ của K8s từ biến môi trường.
+	r.SetTrustedProxies(nil)
+
+	// 2. Cấu hình CORS linh hoạt
 	config := cors.Config{
-		AllowOrigins:     []string{os.Getenv("BASE_URL")},
+		// Sử dụng AllowOriginFunc thay vì AllowOrigins cố định
+		AllowOriginFunc: func(origin string) bool {
+			// Danh sách các domain hợp lệ ở môi trường Staging
+			allowedDomains := []string{
+				"localhost",
+				"auth.local",
+				"nip.io", // Mở khóa cho điện thoại truy cập qua nip.io
+			}
+
+			// Nếu origin chứa một trong các domain trên, cho phép qua
+			for _, domain := range allowedDomains {
+				if strings.Contains(origin, domain) {
+					return true
+				}
+			}
+
+			// Hoặc vẫn ưu tiên BASE_URL nếu có
+			if baseURL := os.Getenv("BASE_URL"); baseURL != "" && origin == baseURL {
+				return true
+			}
+
+			return false
+		},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
